@@ -21,7 +21,7 @@ const faqs = [
   },
   {
     question: "What is the refund policy?",
-    answer: "We offer a 7-day money-back guarantee if you're not satisfied with the course content. No questions asked."
+    answer: "We offer a 7-day money-back guarantee. If you've consumed less than 20% of the course and haven't generated a certificate, we will provide a full refund, no questions asked."
   }
 ];
 

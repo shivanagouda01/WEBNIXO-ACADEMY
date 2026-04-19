@@ -98,7 +98,49 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
     setIsProcessing(true);
     
     try {
-      // Send data to Supabase
+      // 1. Create order on our backend
+      const response = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: currentPrice,
+          customerPhone: formData.phone,
+          customerEmail: formData.email,
+          customerId: formData.loginId,
+          orderId: `order_${Math.random().toString(36).slice(2, 9)}`,
+        }),
+      });
+
+      const orderData = await response.json();
+
+      if (!orderData.payment_session_id) {
+        throw new Error(orderData.message || 'Failed to create payment order');
+      }
+
+      // 2. Initialize Cashfree Checkout
+      // Note: We expect Cashfree SDK was loaded in index.html
+      const cashfree = (window as any).Cashfree({
+        mode: "production" // or "sandbox" based on your env
+      });
+
+      const checkoutOptions = {
+        paymentSessionId: orderData.payment_session_id,
+        returnUrl: `${window.location.origin}/?order_id={order_id}`,
+      };
+
+      // Redirecting to Cashfree Checkout
+      // In a real app, you'd handle the response in the return URL
+      // For this demo, we'll assume the user will be redirected back
+      await cashfree.checkout(checkoutOptions);
+
+      // Note: The code below might not run if redirected, 
+      // but if using a popup it would. Cashfree checkout usually redirects.
+      // We will handle the "success" part after the user returns in a real scenario.
+      // For now, let's simulate the success just in case it doesn't redirect (some modes do popups)
+      
+      // Send data to Supabase (pre-emptive for now as we don't have webhook yet)
       const { error } = await supabase
         .from('registrations')
         .insert([
@@ -119,8 +161,6 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
 
       if (error) {
         console.error('Supabase Error:', error);
-        // We continue even if supabase fails for the demo, 
-        // but normally we'd handle this.
       }
 
       setIsProcessing(false);
@@ -131,10 +171,10 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         origin: { y: 0.6 },
         colors: ['#3b82f6', '#9333ea', '#ffffff']
       });
-    } catch (err) {
-      console.error('Registration failed:', err);
+    } catch (err: any) {
+      console.error('Payment failed:', err);
       setIsProcessing(false);
-      alert('Payment processed but registration failed to sync. Please contact support.');
+      alert(err.message || 'Payment initiation failed. Please check your internet connection and try again.');
     }
   };
 

@@ -55,11 +55,19 @@ export default function Footer({ onNavigate }: FooterProps) {
           <div>
             <h4 className="font-bold mb-6">Support</h4>
             <ul className="space-y-4">
-              {['Contact Us', 'Privacy Policy', 'Terms of Service', 'Refund Policy'].map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-text-muted text-sm hover:text-brand-primary transition-colors">
-                    {link}
-                  </a>
+              {[
+                { label: 'Contact Us', action: () => (window.location.href = 'mailto:support@webnixo.com') },
+                { label: 'Privacy Policy', action: () => onNavigate?.('privacy') },
+                { label: 'Terms of Service', action: () => onNavigate?.('terms') },
+                { label: 'Refund Policy', action: () => onNavigate?.('refund') },
+              ].map((item) => (
+                <li key={item.label}>
+                  <button 
+                    onClick={item.action}
+                    className="text-text-muted text-sm hover:text-brand-primary transition-colors text-left"
+                  >
+                    {item.label}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -89,9 +97,9 @@ export default function Footer({ onNavigate }: FooterProps) {
             © {new Date().getFullYear()} Webnixo Academy | Founded by <span className="text-text-main font-bold">SHIVANAGOUDA PATIL</span>
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-text-muted text-xs hover:text-brand-primary transition-colors">Privacy Policy</a>
-            <a href="#" className="text-text-muted text-xs hover:text-brand-primary transition-colors">Terms of Service</a>
-            <a href="#" className="text-text-muted text-xs hover:text-brand-primary transition-colors">Contact</a>
+            <button onClick={() => onNavigate?.('privacy')} className="text-text-muted text-xs hover:text-brand-primary transition-colors">Privacy Policy</button>
+            <button onClick={() => onNavigate?.('terms')} className="text-text-muted text-xs hover:text-brand-primary transition-colors">Terms of Service</button>
+            <button onClick={() => onNavigate?.('refund')} className="text-text-muted text-xs hover:text-brand-primary transition-colors">Refund Policy</button>
           </div>
         </div>
       </div>

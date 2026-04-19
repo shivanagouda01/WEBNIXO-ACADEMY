@@ -9,6 +9,7 @@ import CertificateSection from './components/Certificate';
 import Testimonials from './components/Testimonials';
 import FAQ from './components/FAQ';
 import Footer from './components/Footer';
+import PolicyModal from './components/PolicyModal';
 import Dashboard from './components/Dashboard';
 import PurchaseFlow from './components/PurchaseFlow';
 import Login from './components/Login';
@@ -24,10 +25,23 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [selectedCourseForPurchase, setSelectedCourseForPurchase] = useState<{ id: string; title: string } | null>(null);
+  const [selectedPolicy, setSelectedPolicy] = useState<'refund' | 'privacy' | 'terms' | null>(null);
   
   // Auth State
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    const saved = localStorage.getItem('currentUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('isAdminLoggedIn') === 'true');
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('currentUser');
+    }
+  }, [currentUser]);
   const [users, setUsers] = useState<AppUser[]>([INITIAL_USER]);
   const [programPrice, setProgramPrice] = useState(199);
   const [courseSettings, setCourseSettings] = useState<Record<string, CourseSetting>>({});
@@ -208,18 +222,67 @@ export default function App() {
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
-  const handleLogin = (loginId: string, password: string) => {
-    const user = users.find(u => u.loginId === loginId && u.password === password);
-    if (user) {
-      setCurrentUser(user);
-      setIsLoading(true);
-      setTimeout(() => {
-        setCurrentPage('dashboard');
+  const handleLogin = async (loginId: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // First check local state for demo/test users
+      const localUser = users.find(u => u.loginId === loginId && u.password === password);
+      
+      if (localUser) {
+        setCurrentUser(localUser);
+        setTimeout(() => {
+          setCurrentPage('dashboard');
+          setIsLoading(false);
+          window.scrollTo(0, 0);
+        }, 800);
+        return;
+      }
+
+      // If not found locally, check Supabase
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('*')
+        .eq('login_id', loginId)
+        .eq('password', password)
+        .single();
+
+      if (data && !error) {
+        const dbUser: AppUser = {
+          id: data.id.toString(),
+          name: data.full_name,
+          email: data.email,
+          phoneNumber: data.phone_number,
+          loginId: data.login_id,
+          password: data.password,
+          progress: 0,
+          xp: 0,
+          streak: 1,
+          completedLessons: [],
+          enrolledCourses: [data.course_id],
+          badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
+        };
+        
+        // Update local users list and set current user
+        setUsers(prev => {
+          if (prev.some(u => u.loginId === dbUser.loginId)) return prev;
+          return [...prev, dbUser];
+        });
+        
+        setCurrentUser(dbUser);
+        
+        setTimeout(() => {
+          setCurrentPage('dashboard');
+          setIsLoading(false);
+          window.scrollTo(0, 0);
+        }, 800);
+      } else {
         setIsLoading(false);
-        window.scrollTo(0, 0);
-      }, 800);
-    } else {
-      alert('Invalid Login ID or Password');
+        alert('Invalid Login ID or Password. Please check your credentials.');
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+      setIsLoading(false);
+      alert('An error occurred during login. Please try again.');
     }
   };
 
@@ -324,10 +387,27 @@ export default function App() {
               <FAQ />
             </main>
 
-            <Footer onNavigate={handleNavigate} />
+            <Footer onNavigate={(page) => {
+              if (['refund', 'privacy', 'terms'].includes(page)) {
+                setSelectedPolicy(page as any);
+              } else {
+                handleNavigate(page);
+              }
+            }} />
 
             {/* Global Watermark */}
             <div className="watermark">Webnixo</div>
+
+            {/* Policy Modals */}
+            <AnimatePresence>
+              {selectedPolicy && (
+                <PolicyModal 
+                  type={selectedPolicy}
+                  onClose={() => setSelectedPolicy(null)}
+                  isDarkMode={isDarkMode}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Purchase Flow Modal */}
             <AnimatePresence>
