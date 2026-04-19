@@ -58,6 +58,37 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    const checkPaymentStatus = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('order_id');
+      const status = urlParams.get('status');
+
+      if (orderId && status === 'verify') {
+        setIsLoading(true);
+        try {
+          const response = await fetch(`/api/payment/verify/${orderId}`);
+          const data = await response.json();
+
+          if (data.status === 'SUCCESS') {
+            // Find user data from temporary storage if available, or fetch from registration
+            // For now, let's just show a message. In a real app, you'd associate this.
+            alert('Payment Verified Successfully! Please login to your dashboard.');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            alert('Payment verification pending or failed. Please contact support.');
+          }
+        } catch (error) {
+          console.error('Error verifying payment:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkPaymentStatus();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);

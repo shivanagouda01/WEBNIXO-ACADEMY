@@ -30,21 +30,48 @@ async function startServer() {
     try {
       const { amount, customerId, customerPhone, customerEmail, orderId } = req.body;
 
+      if (!amount || !customerPhone || !customerEmail) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
       const request = {
-        order_amount: amount,
+        order_amount: Number(parseFloat(amount).toFixed(2)),
         order_currency: "INR",
         order_id: orderId || `order_${Date.now()}`,
         customer_details: {
           customer_id: customerId || `cust_${Date.now()}`,
-          customer_phone: customerPhone,
+          customer_phone: customerPhone.toString(),
           customer_email: customerEmail,
         },
+        order_meta: {
+          return_url: `${req.headers.origin}/?order_id={order_id}&status=verify`,
+        }
       };
 
       const response = await cashfree.PGCreateOrder(request);
       res.json(response.data);
     } catch (error: any) {
       console.error("Cashfree Order Creation Error:", error.response?.data || error.message);
+      res.status(500).json({ error: error.response?.data || "Internal Server Error" });
+    }
+  });
+
+  app.get("/api/payment/verify/:orderId", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const response = await cashfree.PGOrderFetchPayments(orderId);
+      
+      // Check if any of the payments for this order are successful
+      const payments = response.data;
+      const successfulPayment = Array.isArray(payments) && payments.find((p: any) => p.payment_status === "SUCCESS");
+
+      if (successfulPayment) {
+        res.json({ status: "SUCCESS", payment: successfulPayment });
+      } else {
+        res.json({ status: "PENDING", message: "No successful payment found yet." });
+      }
+    } catch (error: any) {
+      console.error("Cashfree Verification Error:", error.response?.data || error.message);
       res.status(500).json({ error: error.response?.data || "Internal Server Error" });
     }
   });

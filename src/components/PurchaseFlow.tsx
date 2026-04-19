@@ -120,57 +120,69 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
       }
 
       // 2. Initialize Cashfree Checkout
-      // Note: We expect Cashfree SDK was loaded in index.html
+      const cashfreeMode = import.meta.env.VITE_CASHFREE_MODE || 'sandbox';
       const cashfree = (window as any).Cashfree({
-        mode: "production" // or "sandbox" based on your env
+        mode: cashfreeMode
       });
 
       const checkoutOptions = {
         paymentSessionId: orderData.payment_session_id,
-        returnUrl: `${window.location.origin}/?order_id={order_id}`,
+        returnUrl: `${window.location.origin}/?order_id={order_id}&status=verify`,
       };
 
-      // Redirecting to Cashfree Checkout
-      // In a real app, you'd handle the response in the return URL
-      // For this demo, we'll assume the user will be redirected back
+      // In the AI Studio environment, we show a message since redirect might be blocked in iframe
+      // or the user needs to know what's happening.
       await cashfree.checkout(checkoutOptions);
-
-      // Note: The code below might not run if redirected, 
-      // but if using a popup it would. Cashfree checkout usually redirects.
-      // We will handle the "success" part after the user returns in a real scenario.
-      // For now, let's simulate the success just in case it doesn't redirect (some modes do popups)
       
-      // Send data to Supabase (pre-emptive for now as we don't have webhook yet)
-      const { error } = await supabase
-        .from('registrations')
-        .insert([
-          {
-            full_name: formData.name,
-            email: formData.email,
-            phone_number: formData.phone,
-            login_id: formData.loginId,
-            password: formData.password,
-            university: formData.university,
-            course_id: course.id,
-            course_title: course.title,
-            amount: currentPrice,
-            payment_method: paymentMethod,
-            created_at: new Date().toISOString()
+      // We don't call setStep('success') here anymore because the return URL will handle it
+      // unless it's a popup flow that returns here.
+      // But just in case of popups/non-redirecting modes:
+      const interval = setInterval(async () => {
+        try {
+          const verifyRes = await fetch(`/api/payment/verify/${orderData.order_id}`);
+          const verifyData = await verifyRes.json();
+          if (verifyData.status === "SUCCESS") {
+            clearInterval(interval);
+            
+            // Save to Supabase
+            const { error } = await supabase
+              .from('registrations')
+              .insert([
+                {
+                  full_name: formData.name,
+                  email: formData.email,
+                  phone_number: formData.phone,
+                  login_id: formData.loginId,
+                  password: formData.password,
+                  university: formData.university,
+                  course_id: course.id,
+                  course_title: course.title,
+                  amount: currentPrice,
+                  payment_method: paymentMethod,
+                  payment_id: verifyData.payment.cf_payment_id,
+                  created_at: new Date().toISOString()
+                }
+              ]);
+
+            if (error) console.error('Supabase Error:', error);
+
+            setIsProcessing(false);
+            setStep('success');
+            confetti({
+              particleCount: 150,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#3b82f6', '#9333ea', '#ffffff']
+            });
           }
-        ]);
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 3000);
 
-      if (error) {
-        console.error('Supabase Error:', error);
-      }
+      // Clean up interval after 5 minutes
+      setTimeout(() => clearInterval(interval), 300000);
 
-      setIsProcessing(false);
-      setStep('success');
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#3b82f6', '#9333ea', '#ffffff']
-      });
     } catch (err: any) {
       console.error('Payment failed:', err);
       setIsProcessing(false);
