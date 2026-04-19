@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-poppins: "Poppins", sans-serif;
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  
+  --color-bg-main: var(--bg-main);
+  --color-bg-card: var(--bg-card);
+  --color-border-card: var(--border-card);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+}
+
+:root {
+  --brand-primary: #3b82f6;
+  --brand-secondary: #9333ea;
+  --brand-accent: #60a5fa;
+  
+  --bg-main: #05070a;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --border-card: rgba(255, 255, 255, 0.08);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+.light {
+  --bg-main: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.02);
+  --border-card: rgba(0, 0, 0, 0.05);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-main text-text-main font-sans antialiased transition-colors duration-300;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold tracking-tight;
+  }
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 280px;
+  grid-template-rows: repeat(3, minmax(200px, auto));
+  gap: 15px;
+}
+
+@media (max-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+}
+
+.bento-card {
+  @apply bg-bg-card border border-border-card rounded-[20px] p-6 transition-all duration-300;
+}
+
+.light .bento-card {
+  @apply shadow-sm;
+}
+
+.bento-card:hover {
+  @apply border-brand-primary/30 bg-white/[0.05];
+}
+
+.light .bento-card:hover {
+  @apply bg-black/[0.03] border-brand-primary/20;
+}
+
+.glass {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10;
+}
+
+.light .glass {
+  @apply bg-black/5 border-black/10;
+}
+
+.glass-dark {
+  @apply bg-black/40 backdrop-blur-2xl border border-white/5;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400;
+}
+
+.bg-gradient-premium {
+  @apply bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-indigo-600/20;
+}
+
+.watermark {
+  @apply pointer-events-none select-none opacity-[0.03] fixed inset-0 flex items-center justify-center text-[15vw] font-bold rotate-[-15deg] z-0;
+}
+
+.light .watermark {
+  @apply opacity-[0.02];
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-bg-main;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 hover:bg-slate-300;
+}
