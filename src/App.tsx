@@ -29,8 +29,13 @@ export default function App() {
   
   // Auth State
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
-    const saved = localStorage.getItem('currentUser');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('currentUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error('Failed to parse currentUser from localStorage', e);
+      return null;
+    }
   });
   
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('isAdminLoggedIn') === 'true');
@@ -87,6 +92,86 @@ export default function App() {
 
     checkPaymentStatus();
   }, []);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Validate origin
+      const origin = event.origin;
+      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('vercel.app')) {
+        return;
+      }
+      
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+        const googleUser = event.data.user;
+        handleOAuthLogin(googleUser);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleOAuthLogin = async (googleUser: any) => {
+    setIsLoading(true);
+    try {
+      // Check if user exists in Supabase
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('*')
+        .eq('email', googleUser.email)
+        .single();
+
+      let dbUser: AppUser;
+
+      if (data && !error) {
+        // Existing user
+        dbUser = {
+          id: data.id.toString(),
+          name: data.full_name,
+          email: data.email,
+          phoneNumber: data.phone_number,
+          loginId: data.login_id,
+          password: data.password,
+          progress: 10, // Initial progress for returning user
+          xp: 100,
+          streak: 1,
+          completedLessons: [],
+          enrolledCourses: [data.course_id],
+          badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
+        };
+      } else {
+        // New user from Google
+        dbUser = {
+          id: googleUser.id,
+          name: googleUser.name,
+          email: googleUser.email,
+          loginId: googleUser.email.split('@')[0],
+          progress: 0,
+          xp: 0,
+          streak: 1,
+          completedLessons: [],
+          enrolledCourses: [],
+          badges: [{ id: 'b1', name: 'Newcomer', icon: '✨', unlocked: true }]
+        };
+      }
+
+      setCurrentUser(dbUser);
+      setUsers(prev => {
+        if (prev.some(u => u.email === dbUser.email)) return prev;
+        return [...prev, dbUser];
+      });
+
+      setTimeout(() => {
+        setCurrentPage('dashboard');
+        setIsLoading(false);
+        window.scrollTo(0, 0);
+      }, 800);
+    } catch (err) {
+      console.error('OAuth login processing failed:', err);
+      setIsLoading(false);
+      alert('OAuth login failed. Please try traditional login.');
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);

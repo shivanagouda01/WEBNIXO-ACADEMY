@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Cashfree, CFEnvironment } from "cashfree-pg";
 import dotenv from "dotenv";
+import axios from "axios";
 
 dotenv.config();
 
@@ -24,6 +25,96 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  // Google Auth Routes
+  app.get("/api/auth/google/url", (req, res) => {
+    const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+    const options = {
+      redirect_uri: `${req.headers.origin}/auth/callback`,
+      client_id: process.env.GOOGLE_CLIENT_ID || "",
+      access_type: "offline",
+      response_type: "code",
+      prompt: "consent",
+      scope: [
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+      ].join(" "),
+    };
+
+    const qs = new URLSearchParams(options);
+    res.json({ url: `${rootUrl}?${qs.toString()}` });
+  });
+
+  app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
+    const code = req.query.code as string;
+
+    if (!code) {
+      return res.status(400).send("No code provided");
+    }
+
+    try {
+      // Exchange code for tokens
+      const tokenUrl = "https://oauth2.googleapis.com/token";
+      const values = {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID || "",
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+        redirect_uri: `${req.headers.origin}/auth/callback`,
+        grant_type: "authorization_code",
+      };
+
+      const tokenRes = await axios.post(tokenUrl, new URLSearchParams(values).toString(), {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+
+      const { id_token, access_token } = tokenRes.data;
+
+      // Get user info
+      const userRes = await axios.get(
+        `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
+        {
+          headers: {
+            Authorization: `Bearer ${id_token}`,
+          },
+        }
+      );
+
+      const googleUser = userRes.data;
+
+      // Success! Send message to opener and close
+      res.send(`
+        <html>
+          <body style="background: #05070a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+            <div style="text-align: center;">
+              <h3>Authentication Successful</h3>
+              <p>Closing window...</p>
+            </div>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ 
+                  type: 'OAUTH_AUTH_SUCCESS',
+                  user: ${JSON.stringify({
+                    name: googleUser.name,
+                    email: googleUser.email,
+                    picture: googleUser.picture,
+                    id: googleUser.id
+                  })}
+                }, '*');
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error: any) {
+      console.error("Google Auth Error:", error.response?.data || error.message);
+      res.status(500).send("Authentication failed");
+    }
+  });
 
   // API Routes
   app.post("/api/payment/create-order", async (req, res) => {
