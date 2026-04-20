@@ -54,6 +54,29 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
   const [showPassword, setShowPassword] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
+  const [direction, setDirection] = useState(1);
+
+  const stepVariants = {
+    initial: (direction: number) => ({
+      opacity: 0,
+      x: direction > 0 ? 50 : -50,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] }
+    },
+    exit: (direction: number) => ({
+      opacity: 0,
+      x: direction > 0 ? -50 : 50,
+      transition: { duration: 0.3 }
+    })
+  };
+
+  const goToStep = (newStep: Step) => {
+    setDirection(newStep === 'registration' ? -1 : 1);
+    setStep(newStep);
+  };
 
   if (!course) return null;
 
@@ -77,7 +100,7 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
       return;
     }
     if (formData.name && formData.email && formData.loginId) {
-      setStep('payment');
+      goToStep('payment');
     }
   };
 
@@ -218,17 +241,55 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         className={`relative w-full max-w-xl overflow-hidden rounded-[32px] border border-border-card shadow-2xl ${
-          isDarkMode ? 'bg-bg-main' : 'bg-white'
+          isDarkMode ? 'bg-bg-main shadow-black/50' : 'bg-white shadow-slate-200'
         }`}
       >
+        {/* Processing Overlay */}
+        <AnimatePresence>
+          {isProcessing && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[110] bg-bg-main/80 backdrop-blur-md flex flex-col items-center justify-center text-center p-8"
+            >
+              <div className="relative mb-6">
+                <div className="w-20 h-20 border-4 border-brand-primary/20 rounded-full" />
+                <div className="absolute inset-0 w-20 h-20 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
+                <ShieldCheck className="absolute inset-0 m-auto w-8 h-8 text-brand-primary animate-pulse" />
+              </div>
+              <h3 className="text-xl font-bold text-text-main mb-2">Securing Your Connection</h3>
+              <p className="text-text-muted text-sm max-w-xs mx-auto">
+                Redirecting you to Cashfree's secure payment gateway. Please do not refresh the page.
+              </p>
+              <div className="mt-8 flex items-center gap-4 text-[10px] uppercase tracking-widest text-text-muted font-bold">
+                <div className="flex items-center gap-1.5"><Lock className="w-3 h-3" /> PCI DSS Compliant</div>
+                <div className="w-1.5 h-1.5 rounded-full bg-border-card" />
+                <div className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> 256-bit SSL</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-card px-8 py-6">
           <div className="flex items-center gap-3">
-            <div className="bg-brand-primary/10 p-2 rounded-xl">
-              <Lock className="w-5 h-5 text-brand-primary" />
+            {step === 'payment' && !isProcessing && (
+              <button 
+                onClick={() => goToStep('registration')}
+                className="p-2 -ml-2 rounded-full hover:bg-white/5 text-text-muted transition-colors"
+                title="Back to registration"
+              >
+                <ChevronRight className="w-5 h-5 rotate-180" />
+              </button>
+            )}
+            <div className={`p-2 rounded-xl transition-colors ${isProcessing ? 'bg-brand-primary text-white' : 'bg-brand-primary/10 text-brand-primary'}`}>
+              <Lock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-text-main">Secure Checkout</h3>
+              <h3 className="font-bold text-text-main">
+                {step === 'registration' ? 'Create Account' : step === 'payment' ? 'Complete Purchase' : 'Success'}
+              </h3>
               <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Webnixo Academy</p>
             </div>
           </div>
@@ -240,14 +301,16 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
           </button>
         </div>
 
-        <div className="p-8 max-h-[80vh] overflow-y-auto">
-          <AnimatePresence mode="wait">
+        <div className="p-8 max-h-[80vh] overflow-y-auto overflow-x-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
             {step === 'registration' && (
               <motion.div
                 key="registration"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                custom={direction}
+                variants={stepVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
                 className="space-y-8"
               >
                 <div className="flex items-center justify-between p-6 rounded-2xl bg-brand-primary/5 border border-brand-primary/20">
@@ -426,27 +489,35 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
             {step === 'payment' && (
               <motion.div
                 key="payment"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                custom={direction}
+                variants={stepVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
                 className="space-y-8"
               >
                 <div className="space-y-4">
-                  <h4 className="font-bold text-text-main">Order Summary</h4>
-                  <div className="p-6 rounded-2xl bg-bg-card border border-border-card space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-text-main">Order Summary</h4>
+                    <span className="text-[10px] text-text-muted uppercase tracking-widest font-bold">1 Item</span>
+                  </div>
+                  <div className="p-6 rounded-2xl bg-bg-card border border-border-card space-y-4 relative overflow-hidden group">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-text-muted">{course.title}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-text-main">{course.title}</span>
+                        <span className="text-xs text-text-muted">Certification Access</span>
+                      </div>
                       <span className="font-bold">₹{basePrice}</span>
                     </div>
                     {appliedDiscount > 0 && (
-                      <div className="flex justify-between items-center text-sm text-green-500">
-                        <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Discount</span>
+                      <div className="flex justify-between items-center text-sm text-green-500 bg-green-500/5 -mx-6 px-6 py-2">
+                        <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> Offer Applied</span>
                         <span className="font-bold">- ₹{appliedDiscount}</span>
                       </div>
                     )}
                     <div className="h-px bg-border-card" />
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total Amount</span>
+                    <div className="flex justify-between items-center text-xl font-bold">
+                      <span className="text-text-main">Total Amount</span>
                       <span className="text-brand-primary">₹{currentPrice}</span>
                     </div>
                   </div>
@@ -454,49 +525,39 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
 
                 <div className="space-y-4">
                   <h4 className="font-bold text-text-main">Select Payment Method</h4>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
-                      { id: 'upi', icon: Smartphone, label: 'UPI (PhonePe, Google Pay, etc.)' },
-                      { id: 'card', icon: CreditCard, label: 'Debit / Credit Card' },
-                      { id: 'netbanking', icon: Globe, label: 'Net Banking' }
+                      { id: 'upi', icon: Smartphone, label: 'UPI' },
+                      { id: 'card', icon: CreditCard, label: 'Card' },
+                      { id: 'netbanking', icon: Globe, label: 'Bank' }
                     ].map((method) => (
                       <button
                         key={method.id}
                         onClick={() => setPaymentMethod(method.id as any)}
-                        className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                        className={`relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all ${
                           paymentMethod === method.id 
                             ? 'bg-brand-primary/10 border-brand-primary text-brand-primary' 
-                            : 'bg-bg-card border-border-card text-text-muted hover:border-white/20'
+                            : 'bg-bg-card border-border-card text-text-muted hover:border-white/10'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <method.icon className="w-5 h-5" />
-                          <span className="font-bold text-sm">{method.label}</span>
-                        </div>
-                        {paymentMethod === method.id && <CheckCircle2 className="w-5 h-5" />}
+                        <method.icon className="w-6 h-6" />
+                        <span className="font-bold text-xs">{method.label}</span>
+                        {paymentMethod === method.id && <motion.div layoutId="activeMethod" className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4" /></motion.div>}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <button 
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className="w-full py-4 bg-brand-primary rounded-2xl font-bold text-white hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Processing Payment...
-                    </>
-                  ) : (
-                    <>Pay ₹{currentPrice} Now</>
-                  )}
-                </button>
-
-                <div className="text-center">
-                  <p className="text-[10px] text-text-muted uppercase tracking-widest font-bold">
-                    Founded by SHIVANAGOUDA PATIL
+                <div className="space-y-4">
+                  <button 
+                    onClick={handlePayment}
+                    disabled={isProcessing}
+                    className="w-full py-5 bg-brand-primary text-white rounded-2xl font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-brand-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    Proceed to Pay ₹{currentPrice} <ArrowRight className="w-6 h-6" />
+                  </button>
+                  <p className="text-[10px] text-center text-text-muted leading-relaxed px-4">
+                    Final step: You'll be redirected to Cashfree's secure site.
                   </p>
                 </div>
               </motion.div>
@@ -505,26 +566,40 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
             {step === 'success' && (
               <motion.div
                 key="success"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
+                custom={direction}
+                variants={stepVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
                 className="text-center space-y-8 py-8"
               >
-                <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-12 h-12 text-green-500" />
+                <div className="relative w-32 h-32 mx-auto">
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", damping: 12 }}
+                    className="absolute inset-0 bg-green-500 shadow-lg shadow-green-500/20 rounded-full"
+                  />
+                  <CheckCircle2 className="absolute inset-0 m-auto w-16 h-16 text-white" />
                 </div>
                 
                 <div>
-                  <h2 className="text-3xl font-bold mb-2">Payment Successful! 🎉</h2>
-                  <p className="text-text-muted">Your account is ready! Welcome to the academy.</p>
+                  <h2 className="text-3xl font-bold mb-3">Welcome Aboard! 🎉</h2>
+                  <p className="text-text-muted px-4">Your payment of <b>₹{currentPrice}</b> is confirmed. Time to level up your skills!</p>
                 </div>
 
-                <div className="p-6 rounded-2xl bg-bg-card border border-border-card space-y-4 text-left">
+                <div className="p-6 rounded-3xl bg-bg-card border border-border-card space-y-4 text-left">
+                  <div className="flex justify-between items-center text-xs uppercase tracking-widest font-bold text-text-muted">
+                    <span>Account Ready</span>
+                    <ShieldCheck className="w-4 h-4 text-green-500" />
+                  </div>
+                  <div className="h-px bg-border-card" />
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-text-muted uppercase font-bold tracking-widest">Login ID</span>
+                    <span className="text-sm font-medium text-text-muted">Login ID</span>
                     <span className="font-mono font-bold text-brand-primary">{formData.loginId}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-text-muted uppercase font-bold tracking-widest">Enrolled In</span>
+                    <span className="text-sm font-medium text-text-muted">Enrolled In</span>
                     <span className="font-bold text-text-main">{course.title}</span>
                   </div>
                 </div>
@@ -532,25 +607,13 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
                 <div className="flex flex-col gap-3">
                   <button 
                     onClick={handleStartLearning}
-                    className="w-full py-4 bg-brand-primary rounded-2xl font-bold text-white hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2"
+                    className="w-full py-5 bg-white text-brand-primary rounded-2xl font-bold text-lg hover:bg-brand-primary hover:text-white transition-all shadow-xl shadow-brand-primary/10 flex items-center justify-center gap-2 group"
                   >
-                    Start Learning Now <ChevronRight className="w-5 h-5" />
+                    Enter Dashboard <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                   </button>
-                  <button 
-                    onClick={() => {
-                      onSuccess({ 
-                        name: formData.name, 
-                        email: formData.email, 
-                        phoneNumber: formData.phone,
-                        loginId: formData.loginId,
-                        password: formData.password 
-                      });
-                      onClose();
-                    }}
-                    className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-bold text-text-main hover:bg-white/10 transition-all font-display tracking-tight"
-                  >
-                    Login Now
-                  </button>
+                  <p className="text-[10px] text-text-muted font-bold tracking-widest uppercase">
+                    Webnixo Academy
+                  </p>
                 </div>
               </motion.div>
             )}
