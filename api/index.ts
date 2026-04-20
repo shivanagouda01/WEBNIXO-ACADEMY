@@ -3,7 +3,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Cashfree, CFEnvironment } from "cashfree-pg";
 import dotenv from "dotenv";
-import axios from "axios";
 
 dotenv.config();
 
@@ -12,102 +11,19 @@ const __dirname = path.dirname(__filename);
 
 // Initialize Cashfree
 const cashfree = new Cashfree(
-  process.env.CASHFREE_ENV === "PRODUCTION" 
+  process.env.CASHFREE_ENV?.toUpperCase() === "PRODUCTION" 
     ? CFEnvironment.PRODUCTION 
     : CFEnvironment.SANDBOX,
   process.env.CASHFREE_APP_ID || "",
   process.env.CASHFREE_SECRET_KEY || ""
 );
 
+// Set explicit API version as many accounts require 2023-08-01
+// @ts-ignore - Setting the version explicitly on the instance
+cashfree.XApiVersion = "2023-08-01";
+
 const app = express();
 app.use(express.json());
-
-// Google Auth Routes
-app.get("/api/auth/google/url", (req, res) => {
-  const rootUrl = "https://accounts.google.com/o/oauth2/v2/auth";
-  const options = {
-    redirect_uri: `${req.headers.origin}/auth/callback`,
-    client_id: process.env.GOOGLE_CLIENT_ID || "",
-    access_type: "offline",
-    response_type: "code",
-    prompt: "consent",
-    scope: [
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/userinfo.email",
-    ].join(" "),
-  };
-
-  const qs = new URLSearchParams(options);
-  res.json({ url: `${rootUrl}?${qs.toString()}` });
-});
-
-app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
-  const code = req.query.code as string;
-
-  if (!code) {
-    return res.status(400).send("No code provided");
-  }
-
-  try {
-    const tokenUrl = "https://oauth2.googleapis.com/token";
-    const values = {
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID || "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-      redirect_uri: `${req.headers.origin}/auth/callback`,
-      grant_type: "authorization_code",
-    };
-
-    const tokenRes = await axios.post(tokenUrl, new URLSearchParams(values).toString(), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
-
-    const { id_token, access_token } = tokenRes.data;
-
-    const userRes = await axios.get(
-      `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`,
-      {
-        headers: {
-          Authorization: `Bearer ${id_token}`,
-        },
-      }
-    );
-
-    const googleUser = userRes.data;
-
-    res.send(`
-      <html>
-        <body style="background: #05070a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
-          <div style="text-align: center;">
-            <h3>Authentication Successful</h3>
-            <p>Closing window...</p>
-          </div>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ 
-                type: 'OAUTH_AUTH_SUCCESS',
-                user: ${JSON.stringify({
-                  name: googleUser.name,
-                  email: googleUser.email,
-                  picture: googleUser.picture,
-                  id: googleUser.id
-                })}
-              }, '*');
-              window.close();
-            } else {
-              window.location.href = '/';
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  } catch (error: any) {
-    console.error("Google Auth Error:", error.response?.data || error.message);
-    res.status(500).send("Authentication failed");
-  }
-});
 
 // API Routes
 app.post("/api/payment/create-order", async (req, res) => {
@@ -115,28 +31,54 @@ app.post("/api/payment/create-order", async (req, res) => {
     const { amount, customerId, customerPhone, customerEmail, orderId } = req.body;
 
     if (!amount || !customerPhone || !customerEmail) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Missing required fields (amount, phone, or email)" });
     }
 
+    // Sanitize customerId to be alphanumeric (required by Cashfree)
+    const sanitizedCustomerId = (customerId || `cust_${Date.now()}`).toString().replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50);
+    
+    // Ensure phone is just numbers and at least 10 digits
+    const sanitizedPhone = customerPhone.toString().replace(/[^0-9]/g, '').slice(-10);
+    if (sanitizedPhone.length < 10) {
+      return res.status(400).json({ error: "Invalid phone number. Must be at least 10 digits." });
+    }
+
+    const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+
     const request = {
-      order_amount: Number(parseFloat(amount).toFixed(2)),
+      order_amount: parseFloat(parseFloat(amount.toString()).toFixed(2)),
       order_currency: "INR",
-      order_id: orderId || `order_${Date.now()}`,
+      order_id: orderId || `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       customer_details: {
-        customer_id: customerId || `cust_${Date.now()}`,
-        customer_phone: customerPhone.toString(),
+        customer_id: sanitizedCustomerId,
+        customer_phone: sanitizedPhone,
         customer_email: customerEmail,
       },
       order_meta: {
-        return_url: `${req.headers.origin}/?order_id={order_id}&status=verify`,
+        return_url: `${origin}/?order_id={order_id}&status=verify`,
       }
     };
 
+    console.log("[Cashfree] Creating Order:", JSON.stringify(request, null, 2));
+
     const response = await cashfree.PGCreateOrder(request);
-    res.json(response.data);
+    
+    if (response && response.data && response.status === 200) {
+      console.log("[Cashfree] Success:", response.data.payment_session_id);
+      return res.json(response.data);
+    } else {
+      console.error("[Cashfree] Backend Error Response:", response?.data);
+      const errorData = response?.data as any;
+      return res.status(response?.status || 400).json({
+        error: errorData?.message || errorData || "Cashfree order creation failed"
+      });
+    }
   } catch (error: any) {
-    console.error("Cashfree Order Creation Error:", error.response?.data || error.message);
-    res.status(500).json({ error: error.response?.data || "Internal Server Error" });
+    const errorDetails = error.response?.data || error.message;
+    console.error("[Cashfree] Exception during order creation:", errorDetails);
+    return res.status(500).json({ 
+      error: typeof errorDetails === 'object' ? JSON.stringify(errorDetails) : errorDetails || "Internal Server Error" 
+    });
   }
 });
 

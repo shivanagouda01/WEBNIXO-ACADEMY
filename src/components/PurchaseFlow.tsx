@@ -121,6 +121,23 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
     setIsProcessing(true);
     
     try {
+      if (currentPrice <= 0) {
+        // Special case for free courses or 100% discount
+        setStep('success');
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#4F46E5', '#9333EA', '#06B6D4']
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!(window as any).Cashfree) {
+        throw new Error('Payment gateway (Cashfree) is not yet loaded. Please wait a moment or refresh.');
+      }
+
       // 1. Create order on our backend
       const response = await fetch('/api/payment/create-order', {
         method: 'POST',
@@ -136,18 +153,28 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         }),
       });
 
-      const orderData = await response.json().catch(async (e) => {
-      const text = await response.text();
-      console.error('Failed to parse JSON. Response text:', text);
-      throw new Error(`Server returned invalid response: ${text.slice(0, 100)}...`);
-    });
+      const responseText = await response.text();
+      let orderData: any;
+      
+      try {
+        orderData = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse JSON. Response text:', responseText);
+        throw new Error(`Server returned invalid response: ${responseText.slice(0, 100)}...`);
+      }
+
+      if (!response.ok) {
+        throw new Error(orderData.error?.message || orderData.error || orderData.message || 'Server error creating order');
+      }
 
       if (!orderData.payment_session_id) {
-        throw new Error(orderData.message || 'Failed to create payment order');
+        throw new Error('Payment session ID missing from response');
       }
 
       // 2. Initialize Cashfree Checkout
       const cashfreeMode = import.meta.env.VITE_CASHFREE_MODE || 'sandbox';
+      console.log('Initializing Cashfree SDK:', { mode: cashfreeMode, sessionId: orderData.payment_session_id });
+      
       const cashfree = (window as any).Cashfree({
         mode: cashfreeMode
       });
