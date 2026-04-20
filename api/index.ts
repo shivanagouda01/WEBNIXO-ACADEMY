@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Cashfree, CFEnvironment } from "cashfree-pg";
@@ -160,33 +159,37 @@ app.get("/api/payment/verify/:orderId", async (req, res) => {
   }
 });
 
-// Vite middleware for development
-let vite: any;
-if (process.env.NODE_ENV !== "production") {
-  createViteServer({
-    server: { middlewareMode: true },
-    appType: "spa",
-  }).then((v) => {
-    vite = v;
+// Helper for Vite in development
+async function setupVite(app: any) {
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
     app.use(vite.middlewares);
-  });
-} else {
-  // Static files for production (Fallback for local prod testing)
-  const distPath = path.join(process.cwd(), "dist");
-  app.use(express.static(distPath));
-  
-  // No catch-all '*' here because Vercel handles it via vercel.json rewrites
-  // But for standard production deployment (shared app), we might still need it
-  app.get("/dashboard", (req, res) => res.sendFile(path.join(distPath, "index.html")));
-  app.get("/login", (req, res) => res.sendFile(path.join(distPath, "index.html")));
-  app.get("/verify", (req, res) => res.sendFile(path.join(distPath, "index.html")));
+  } else {
+    // Static files for production
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    
+    // Routes that should serve index.html for SPA support in production
+    const spaRoutes = ["/", "/dashboard", "/login", "/verify", "/admin-login", "/admin-dashboard"];
+    spaRoutes.forEach(route => {
+      app.get(route, (req, res) => res.sendFile(path.join(distPath, "index.html")));
+    });
+  }
 }
 
-// Port listener for local development
-if (process.env.NODE_ENV !== "production") {
-  const PORT = 3000;
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+// Initialization
+if (!process.env.VERCEL) {
+  setupVite(app).then(() => {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }).catch(err => {
+    console.error("Failed to start server:", err);
   });
 }
 

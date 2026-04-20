@@ -136,7 +136,11 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         }),
       });
 
-      const orderData = await response.json();
+      const orderData = await response.json().catch(async (e) => {
+      const text = await response.text();
+      console.error('Failed to parse JSON. Response text:', text);
+      throw new Error(`Server returned invalid response: ${text.slice(0, 100)}...`);
+    });
 
       if (!orderData.payment_session_id) {
         throw new Error(orderData.message || 'Failed to create payment order');
