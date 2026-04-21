@@ -20,7 +20,8 @@ import {
   User as UserIcon,
   Moon,
   Sun,
-  Search
+  Search,
+  Download
 } from 'lucide-react';
 import { CURRICULUM, INITIAL_USER, COURSES } from '../constants';
 import { Module, Lesson, AppUser, CourseCertificate } from '../types';
@@ -76,7 +77,7 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
   };
 
   const handleGenerateCertificate = () => {
-    const code = `WXN-PY-2026-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const code = user.certificateId || `CERT-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const cert: CourseCertificate = {
       code,
       studentName: user.name,
@@ -330,6 +331,37 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
 
                 {/* Sidebar */}
                 <div className="space-y-8">
+                  {/* Download Resources Card */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-6 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/20 relative overflow-hidden"
+                  >
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                          <Download className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold">Course Resources</h3>
+                          <p className="text-xs text-text-muted">Download all materials</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-text-muted mb-6">
+                        Get offline access to all course videos, transcripts, and exercises in one ZIP file.
+                      </p>
+                      <a 
+                        href="/courses.zip" 
+                        download
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                      >
+                        Download ZIP <Download className="w-4 h-4" />
+                      </a>
+                    </div>
+                    {/* Decorative Background */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                  </motion.div>
+
                   <section className="p-6 rounded-2xl bg-gradient-to-br from-blue-600/10 to-purple-600/10 border border-white/10">
                     <h3 className="font-bold mb-4 flex items-center gap-2">
                       <Award className="w-5 h-5 text-yellow-500" />

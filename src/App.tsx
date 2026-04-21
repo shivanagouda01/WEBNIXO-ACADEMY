@@ -122,6 +122,7 @@ export default function App() {
             phoneNumber: reg.phone_number,
             loginId: reg.login_id,
             password: reg.password,
+            certificateId: reg.certificate_id,
             progress: 0,
             xp: 0,
             streak: 1,
@@ -194,9 +195,10 @@ export default function App() {
         .from('coupons')
         .insert([{ code, discount }]);
       if (error) throw error;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add coupon:', err);
-      alert('Failed to save coupon to database.');
+      const errorMessage = err?.message || 'Unknown error';
+      alert(`Failed to add coupon: ${errorMessage}`);
     }
   };
 
@@ -208,9 +210,10 @@ export default function App() {
         .delete()
         .match({ code });
       if (error) throw error;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to remove coupon:', err);
-      alert('Failed to remove coupon from database.');
+      const errorMessage = err?.message || 'Unknown error';
+      alert(`Failed to remove coupon: ${errorMessage}`);
     }
   };
 
@@ -229,9 +232,10 @@ export default function App() {
         }, { onConflict: 'course_id' });
 
       if (error) throw error;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update course settings:', err);
-      alert('Failed to save settings to Supabase. Please check your connection.');
+      const errorMessage = err?.message || 'Unknown error';
+      alert(`Failed to save settings: ${errorMessage}. Please check your Supabase connection and table RLS policies.`);
     }
   };
 
@@ -290,6 +294,7 @@ export default function App() {
           phoneNumber: data.phone_number,
           loginId: data.login_id,
           password: data.password,
+          certificateId: data.certificate_id,
           progress: 0,
           xp: 0,
           streak: 1,

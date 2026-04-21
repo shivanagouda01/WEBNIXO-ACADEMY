@@ -51,6 +51,7 @@ export interface AppUser {
   phoneNumber?: string;
   loginId: string;
   password?: string;
+  certificateId?: string;
   progress: number;
   xp: number;
   streak: number;
