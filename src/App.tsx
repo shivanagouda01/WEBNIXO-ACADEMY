@@ -264,6 +264,7 @@ export default function App() {
       if (error) throw error;
     } catch (err) {
       console.error('Failed to update global price in Supabase:', err);
+      throw err; // Rethrow to let UI handle it
     }
   };
 
@@ -273,15 +274,12 @@ export default function App() {
         .from('coupons')
         .insert([{ code, discount }]);
       
-      if (error) {
-        alert(`Failed to add coupon in Supabase: ${error.message}`);
-        return;
-      }
+      if (error) throw error;
       
       setCoupons(prev => [...prev, { code, discount }]);
     } catch (err: any) {
       console.error('Failed to add coupon:', err);
-      alert('Network error while adding coupon');
+      throw err;
     }
   };
 
@@ -292,14 +290,12 @@ export default function App() {
         .delete()
         .eq('code', code);
       
-      if (error) {
-        alert(`Failed to remove coupon from Supabase: ${error.message}`);
-        return;
-      }
+      if (error) throw error;
       
       setCoupons(prev => prev.filter(c => c.code !== code));
     } catch (err: any) {
       console.error('Failed to remove coupon:', err);
+      throw err;
     }
   };
 
@@ -317,13 +313,10 @@ export default function App() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'course_id' });
       
-      if (error) {
-        console.error('Supabase Upsert error:', error);
-        // We don't alert on every keystroke if called from AdminDashboard, 
-        // but it's good to log
-      }
+      if (error) throw error;
     } catch (err: any) {
       console.error('Failed to update course settings:', err);
+      throw err;
     }
   };
 
