@@ -20,7 +20,7 @@ import {
   Tag
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-// Removed Supabase import
+import { supabase } from '../lib/supabase';
 
 interface PurchaseFlowProps {
   course: {
@@ -194,7 +194,27 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
           if (verifyData.status === "SUCCESS") {
             clearInterval(interval);
             
-            // Registration is now handled by persistence in App.tsx via handleStartLearning -> onSuccess
+            // Save to Supabase
+            await supabase
+              .from('registrations')
+              .insert([
+                {
+                  full_name: formData.name,
+                  email: formData.email,
+                  phone_number: formData.phone,
+                  login_id: formData.loginId,
+                  password: formData.password,
+                  university: formData.university,
+                  course_id: course.id,
+                  course_title: course.title,
+                  amount: currentPrice,
+                  payment_method: paymentMethod,
+                  payment_id: verifyData.payment.cf_payment_id,
+                  certificate_id: generatedCertificateId,
+                  created_at: new Date().toISOString()
+                }
+              ]);
+
             setIsProcessing(false);
             setStep('success');
             confetti({
