@@ -49,10 +49,36 @@ export default function AdminDashboard({
   onAddCoupon,
   onRemoveCoupon
 }: AdminDashboardProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDiscount, setNewCouponDiscount] = useState('');
+
+  const handleUpdateCourseSetting = async (setting: CourseSetting) => {
+    setSaveStatus('saving');
+    try {
+      await onUpdateCourseSetting(setting);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (e) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  const handleUpdatePrice = async (price: number) => {
+    setSaveStatus('saving');
+    try {
+      await onUpdatePrice(price);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (e) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
 
   const validStudents = Array.isArray(students) ? students : [];
 
@@ -83,6 +109,26 @@ export default function AdminDashboard({
           </div>
 
           <div className="flex items-center gap-4">
+            <div className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+              saveStatus === 'saving' ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' :
+              saveStatus === 'saved' ? 'bg-green-500/10 border-green-500/30 text-green-500' :
+              saveStatus === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-500' :
+              isDarkMode ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-100 border-slate-200 text-slate-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                saveStatus === 'saving' ? 'bg-blue-500 animate-pulse' :
+                saveStatus === 'saved' ? 'bg-green-500' :
+                saveStatus === 'error' ? 'bg-red-500' :
+                'bg-current'
+              }`} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">
+                {saveStatus === 'saving' ? 'Syncing...' :
+                 saveStatus === 'saved' ? 'All changes saved' :
+                 saveStatus === 'error' ? 'Sync failed' :
+                 'Cloud Sync Active'}
+              </span>
+            </div>
+
             <div className="hidden md:flex items-center gap-6 px-6 py-2 rounded-full glass border border-white/10 mr-4">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-brand-primary" />
@@ -187,12 +233,12 @@ export default function AdminDashboard({
                         <input 
                           type="number" 
                           value={setting.price}
-                          onChange={(e) => onUpdateCourseSetting({ ...setting, price: Number(e.target.value) })}
+                          onChange={(e) => handleUpdateCourseSetting({ ...setting, price: Number(e.target.value) })}
                           className="w-24 bg-[#05070a] border border-white/10 rounded-xl pl-6 pr-2 py-2 text-sm text-text-main focus:outline-none focus:border-brand-primary transition-all font-mono font-bold"
                         />
                       </div>
                       <button 
-                        onClick={() => onUpdateCourseSetting({ ...setting, is_live: !setting.is_live })}
+                        onClick={() => handleUpdateCourseSetting({ ...setting, is_live: !setting.is_live })}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                           setting.is_live 
                             ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary' 
@@ -229,7 +275,7 @@ export default function AdminDashboard({
                   <input 
                     type="number" 
                     value={programPrice}
-                    onChange={(e) => onUpdatePrice(Number(e.target.value))}
+                    onChange={(e) => handleUpdatePrice(Number(e.target.value))}
                     className="flex-grow bg-[#05070a]/50 border border-white/10 rounded-2xl px-6 py-4 text-text-main focus:outline-none focus:border-brand-primary transition-all font-mono text-xl font-bold"
                   />
                   <div className="px-6 py-4 bg-brand-primary/10 text-brand-primary rounded-2xl font-bold flex items-center">

@@ -36,21 +36,45 @@ CREATE TABLE IF NOT EXISTS public.coupons (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Enable Row Level Security (RLS)
+-- 4. Create global_settings table
+CREATE TABLE IF NOT EXISTS public.global_settings (
+    id TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Enable Row Level Security (RLS)
 ALTER TABLE public.registrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
 
--- 5. Create Policies
+-- 6. Create Policies (Idempotent)
 
--- Registrations: Anyone can insert (sign up), only authenticated users can read (or you can restrict to admin)
+-- Registrations
+DROP POLICY IF EXISTS "Enable insert for all" ON public.registrations;
 CREATE POLICY "Enable insert for all" ON public.registrations FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Enable read for all" ON public.registrations;
 CREATE POLICY "Enable read for all" ON public.registrations FOR SELECT USING (true); -- Note: In production, restrict this to admin only
 
--- Course Settings: Anyone can read, only admin can update (for this demo, we allow all for simplicity)
+-- Course Settings
+DROP POLICY IF EXISTS "Enable read for all settings" ON public.course_settings;
 CREATE POLICY "Enable read for all settings" ON public.course_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable all for all settings" ON public.course_settings;
 CREATE POLICY "Enable all for all settings" ON public.course_settings FOR ALL USING (true);
 
--- Coupons: Anyone can read, only admin can update
+-- Coupons
+DROP POLICY IF EXISTS "Enable read for all coupons" ON public.coupons;
 CREATE POLICY "Enable read for all coupons" ON public.coupons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable all for all coupons" ON public.coupons;
 CREATE POLICY "Enable all for all coupons" ON public.coupons FOR ALL USING (true);
+
+-- Global Settings
+DROP POLICY IF EXISTS "Enable read for all global settings" ON public.global_settings;
+CREATE POLICY "Enable read for all global settings" ON public.global_settings FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Enable all for all global settings" ON public.global_settings;
+CREATE POLICY "Enable all for all global settings" ON public.global_settings FOR ALL USING (true);

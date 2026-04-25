@@ -55,16 +55,27 @@ export default function App() {
   });
 
   const [courseSettings, setCourseSettings] = useState<Record<string, CourseSetting>>(() => {
-    const saved = localStorage.getItem('academy_course_settings');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('academy_course_settings');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
   });
 
   const [coupons, setCoupons] = useState<{ code: string; discount: number }[]>(() => {
-    const saved = localStorage.getItem('academy_coupons');
-    return saved ? JSON.parse(saved) : [{ code: 'WELCOME50', discount: 50 }];
+    try {
+      const saved = localStorage.getItem('academy_coupons');
+      return saved ? JSON.parse(saved) : [{ code: 'WELCOME50', discount: 50 }];
+    } catch (e) {
+      return [{ code: 'WELCOME50', discount: 50 }];
+    }
   });
 
-  const [programPrice, setProgramPrice] = useState(199);
+  const [programPrice, setProgramPrice] = useState(() => {
+    const saved = localStorage.getItem('academy_program_price');
+    return saved ? Number(saved) : 199;
+  });
 
   // Synchronize changes to localStorage
   useEffect(() => {
@@ -78,6 +89,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('academy_coupons', JSON.stringify(coupons));
   }, [coupons]);
+
+  useEffect(() => {
+    localStorage.setItem('academy_program_price', programPrice.toString());
+  }, [programPrice]);
 
   const [certificates, setCertificates] = useState<CourseCertificate[]>([
     {
@@ -216,26 +231,73 @@ export default function App() {
     fetchCoupons();
   }, []);
 
+  useEffect(() => {
+    const fetchGlobalSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('global_settings')
+          .select('*')
+          .eq('id', 'pricing')
+          .single();
+
+        if (data && !error) {
+          setProgramPrice(data.value.programPrice || 199);
+        }
+      } catch (err) {
+        console.error('Failed to fetch global settings:', err);
+      }
+    };
+
+    fetchGlobalSettings();
+  }, []);
+
+  const updateProgramPrice = async (price: number) => {
+    setProgramPrice(price);
+    try {
+      const { error } = await supabase
+        .from('global_settings')
+        .upsert({
+          id: 'pricing',
+          value: { programPrice: price },
+          updated_at: new Date().toISOString()
+        });
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to update global price in Supabase:', err);
+    }
+  };
+
   const addCoupon = async (code: string, discount: number) => {
     try {
-      setCoupons(prev => [...prev, { code, discount }]);
       const { error } = await supabase
         .from('coupons')
         .insert([{ code, discount }]);
-      if (error) throw error;
+      
+      if (error) {
+        alert(`Failed to add coupon in Supabase: ${error.message}`);
+        return;
+      }
+      
+      setCoupons(prev => [...prev, { code, discount }]);
     } catch (err: any) {
       console.error('Failed to add coupon:', err);
+      alert('Network error while adding coupon');
     }
   };
 
   const removeCoupon = async (code: string) => {
     try {
-      setCoupons(prev => prev.filter(c => c.code !== code));
       const { error } = await supabase
         .from('coupons')
         .delete()
-        .match({ code });
-      if (error) throw error;
+        .eq('code', code);
+      
+      if (error) {
+        alert(`Failed to remove coupon from Supabase: ${error.message}`);
+        return;
+      }
+      
+      setCoupons(prev => prev.filter(c => c.code !== code));
     } catch (err: any) {
       console.error('Failed to remove coupon:', err);
     }
@@ -243,7 +305,9 @@ export default function App() {
 
   const updateCourseSetting = async (setting: CourseSetting) => {
     try {
+      // Optimistic update locally
       setCourseSettings(prev => ({ ...prev, [setting.course_id]: setting }));
+      
       const { error } = await supabase
         .from('course_settings')
         .upsert({
@@ -252,7 +316,12 @@ export default function App() {
           is_live: setting.is_live,
           updated_at: new Date().toISOString()
         }, { onConflict: 'course_id' });
-      if (error) throw error;
+      
+      if (error) {
+        console.error('Supabase Upsert error:', error);
+        // We don't alert on every keystroke if called from AdminDashboard, 
+        // but it's good to log
+      }
     } catch (err: any) {
       console.error('Failed to update course settings:', err);
     }
@@ -522,7 +591,7 @@ export default function App() {
               isDarkMode={isDarkMode} 
               onLogout={handleLogout}
               programPrice={programPrice}
-              onUpdatePrice={setProgramPrice}
+              onUpdatePrice={updateProgramPrice}
               courseSettings={courseSettings}
               onUpdateCourseSetting={updateCourseSetting}
               coupons={coupons}
