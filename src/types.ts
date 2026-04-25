@@ -52,6 +52,7 @@ export interface AppUser {
   loginId: string;
   password?: string;
   certificateId?: string;
+  university?: string;
   progress: number;
   xp: number;
   streak: number;

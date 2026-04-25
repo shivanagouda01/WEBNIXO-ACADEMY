@@ -67,22 +67,36 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
 
 -- 5. Create Policies
+-- Use DROP POLICY IF EXISTS to avoid errors if the script is run multiple times
 
--- Allow anonymous read access to everything
+-- Policies for course_settings
+DROP POLICY IF EXISTS "Allow public read access on course_settings" ON course_settings;
 CREATE POLICY "Allow public read access on course_settings" ON course_settings FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on coupons" ON coupons FOR SELECT USING (true);
-CREATE POLICY "Allow public read access on registrations" ON registrations FOR SELECT USING (true);
 
--- Allow public (anonymous) insert/upsert for settings and coupons (for admin dashboard demo)
--- NOTE: In a real production app, you should restrict this to authenticated admins
+DROP POLICY IF EXISTS "Allow public insert on course_settings" ON course_settings;
 CREATE POLICY "Allow public insert on course_settings" ON course_settings FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update on course_settings" ON course_settings;
 CREATE POLICY "Allow public update on course_settings" ON course_settings FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Allow public delete on course_settings" ON course_settings;
 CREATE POLICY "Allow public delete on course_settings" ON course_settings FOR DELETE USING (true);
 
+-- Policies for coupons
+DROP POLICY IF EXISTS "Allow public read access on coupons" ON coupons;
+CREATE POLICY "Allow public read access on coupons" ON coupons FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on coupons" ON coupons;
 CREATE POLICY "Allow public insert on coupons" ON coupons FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public delete on coupons" ON coupons;
 CREATE POLICY "Allow public delete on coupons" ON coupons FOR DELETE USING (true);
 
--- Allow students to register
+-- Policies for registrations
+DROP POLICY IF EXISTS "Allow public read access on registrations" ON registrations;
+CREATE POLICY "Allow public read access on registrations" ON registrations FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert on registrations" ON registrations;
 CREATE POLICY "Allow public insert on registrations" ON registrations FOR INSERT WITH CHECK (true);
 
 -- Helpful tip: Disable RLS entirely for testing if you are still getting errors

@@ -18,7 +18,7 @@ import AdminDashboard from './components/AdminDashboard';
 import CertificateVerification from './components/CertificateVerification';
 import { AppUser, CourseCertificate, CourseSetting } from './types';
 import { INITIAL_USER, COURSES } from './constants';
-import { supabase } from './lib/supabase';
+// Removed Supabase import
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'dashboard' | 'login' | 'verify' | 'admin-login' | 'admin-dashboard'>('home');
@@ -47,12 +47,38 @@ export default function App() {
       localStorage.removeItem('currentUser');
     }
   }, [currentUser]);
-  const [users, setUsers] = useState<AppUser[]>([INITIAL_USER]);
+
+  // Persistence State
+  const [users, setUsers] = useState<AppUser[]>(() => {
+    const saved = localStorage.getItem('academy_users');
+    return saved ? JSON.parse(saved) : [INITIAL_USER];
+  });
+
+  const [courseSettings, setCourseSettings] = useState<Record<string, CourseSetting>>(() => {
+    const saved = localStorage.getItem('academy_course_settings');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [coupons, setCoupons] = useState<{ code: string; discount: number }[]>(() => {
+    const saved = localStorage.getItem('academy_coupons');
+    return saved ? JSON.parse(saved) : [{ code: 'WELCOME50', discount: 50 }];
+  });
+
   const [programPrice, setProgramPrice] = useState(199);
-  const [courseSettings, setCourseSettings] = useState<Record<string, CourseSetting>>({});
-  const [coupons, setCoupons] = useState<{ code: string; discount: number }[]>([
-    { code: 'WELCOME50', discount: 50 }
-  ]);
+
+  // Synchronize changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('academy_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    localStorage.setItem('academy_course_settings', JSON.stringify(courseSettings));
+  }, [courseSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('academy_coupons', JSON.stringify(coupons));
+  }, [coupons]);
+
   const [certificates, setCertificates] = useState<CourseCertificate[]>([
     {
       code: 'WXN-PY-2026-A1B2',
@@ -106,137 +132,18 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  useEffect(() => {
-    const fetchRegistrations = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('registrations')
-          .select('*')
-          .order('created_at', { ascending: false });
+  // Removed all Supabase fetch Effects (fetchRegistrations, fetchCourseSettings, fetchCoupons)
 
-        if (data && !error) {
-          const supabaseUsers: AppUser[] = data.map(reg => ({
-            id: reg.id.toString(),
-            name: reg.full_name,
-            email: reg.email,
-            phoneNumber: reg.phone_number,
-            loginId: reg.login_id,
-            password: reg.password,
-            certificateId: reg.certificate_id,
-            progress: 0,
-            xp: 0,
-            streak: 1,
-            completedLessons: [],
-            enrolledCourses: [reg.course_id],
-            badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
-          }));
-
-          // Merge local users with Supabase users, avoiding duplicates by loginId
-          setUsers(prev => {
-            const existingIds = new Set(prev.map(u => u.loginId));
-            const newOnes = supabaseUsers.filter(u => !existingIds.has(u.loginId));
-            return [...prev, ...newOnes];
-          });
-        }
-      } catch (err) {
-        console.error('Failed to fetch from Supabase:', err);
-      }
-    };
-
-    if (isAdminLoggedIn) {
-      fetchRegistrations();
-    }
-  }, [isAdminLoggedIn]);
-
-  useEffect(() => {
-    const fetchCourseSettings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('course_settings')
-          .select('*');
-
-        if (data && !error) {
-          const settingsMap: Record<string, CourseSetting> = {};
-          data.forEach(s => {
-            settingsMap[s.course_id] = s;
-          });
-          setCourseSettings(settingsMap);
-        }
-      } catch (err) {
-        console.error('Failed to fetch course settings:', err);
-      }
-    };
-
-    fetchCourseSettings();
-  }, []);
-
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('coupons')
-          .select('*');
-
-        if (data && !error) {
-          setCoupons(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch coupons:', err);
-      }
-    };
-
-    fetchCoupons();
-  }, []);
-
-  const addCoupon = async (code: string, discount: number) => {
-    try {
-      setCoupons(prev => [...prev, { code, discount }]);
-      const { error } = await supabase
-        .from('coupons')
-        .insert([{ code, discount }]);
-      if (error) throw error;
-    } catch (err: any) {
-      console.error('Failed to add coupon:', err);
-      const errorMessage = err?.message || 'Unknown error';
-      alert(`Failed to add coupon: ${errorMessage}`);
-    }
+  const addCoupon = (code: string, discount: number) => {
+    setCoupons(prev => [...prev, { code, discount }]);
   };
 
-  const removeCoupon = async (code: string) => {
-    try {
-      setCoupons(prev => prev.filter(c => c.code !== code));
-      const { error } = await supabase
-        .from('coupons')
-        .delete()
-        .match({ code });
-      if (error) throw error;
-    } catch (err: any) {
-      console.error('Failed to remove coupon:', err);
-      const errorMessage = err?.message || 'Unknown error';
-      alert(`Failed to remove coupon: ${errorMessage}`);
-    }
+  const removeCoupon = (code: string) => {
+    setCoupons(prev => prev.filter(c => c.code !== code));
   };
 
-  const updateCourseSetting = async (setting: CourseSetting) => {
-    try {
-      // Optimistic update
-      setCourseSettings(prev => ({ ...prev, [setting.course_id]: setting }));
-
-      const { error } = await supabase
-        .from('course_settings')
-        .upsert({
-          course_id: setting.course_id,
-          price: setting.price,
-          is_live: setting.is_live,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'course_id' });
-
-      if (error) throw error;
-    } catch (err: any) {
-      console.error('Failed to update course settings:', err);
-      const errorMessage = err?.message || 'Unknown error';
-      alert(`Failed to save settings: ${errorMessage}. Please check your Supabase connection and table RLS policies.`);
-    }
+  const updateCourseSetting = (setting: CourseSetting) => {
+    setCourseSettings(prev => ({ ...prev, [setting.course_id]: setting }));
   };
 
   const handleNavigate = (page: 'home' | 'dashboard' | 'login' | 'verify' | 'admin-login' | 'admin-dashboard') => {
@@ -262,68 +169,21 @@ export default function App() {
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
-  const handleLogin = async (loginId: string, password: string) => {
+  const handleLogin = (loginId: string, password: string) => {
     setIsLoading(true);
-    try {
-      // First check local state for demo/test users
-      const localUser = users.find(u => u.loginId === loginId && u.password === password);
-      
-      if (localUser) {
-        setCurrentUser(localUser);
-        setTimeout(() => {
-          setCurrentPage('dashboard');
-          setIsLoading(false);
-          window.scrollTo(0, 0);
-        }, 800);
-        return;
-      }
-
-      // If not found locally, check Supabase
-      const { data, error } = await supabase
-        .from('registrations')
-        .select('*')
-        .eq('login_id', loginId)
-        .eq('password', password)
-        .single();
-
-      if (data && !error) {
-        const dbUser: AppUser = {
-          id: data.id.toString(),
-          name: data.full_name,
-          email: data.email,
-          phoneNumber: data.phone_number,
-          loginId: data.login_id,
-          password: data.password,
-          certificateId: data.certificate_id,
-          progress: 0,
-          xp: 0,
-          streak: 1,
-          completedLessons: [],
-          enrolledCourses: [data.course_id],
-          badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
-        };
-        
-        // Update local users list and set current user
-        setUsers(prev => {
-          if (prev.some(u => u.loginId === dbUser.loginId)) return prev;
-          return [...prev, dbUser];
-        });
-        
-        setCurrentUser(dbUser);
-        
-        setTimeout(() => {
-          setCurrentPage('dashboard');
-          setIsLoading(false);
-          window.scrollTo(0, 0);
-        }, 800);
-      } else {
+    // Directly check local users list (now persisted in localStorage)
+    const activeUser = users.find(u => u.loginId === loginId && u.password === password);
+    
+    if (activeUser) {
+      setCurrentUser(activeUser);
+      setTimeout(() => {
+        setCurrentPage('dashboard');
         setIsLoading(false);
-        alert('Invalid Login ID or Password. Please check your credentials.');
-      }
-    } catch (err) {
-      console.error('Login failed:', err);
+        window.scrollTo(0, 0);
+      }, 800);
+    } else {
       setIsLoading(false);
-      alert('An error occurred during login. Please try again.');
+      alert('Invalid Login ID or Password. Please check your credentials.');
     }
   };
 
@@ -360,6 +220,8 @@ export default function App() {
       phoneNumber: userData.phoneNumber,
       loginId: userData.loginId,
       password: userData.password,
+      certificateId: userData.certificateId,
+      university: userData.university,
       progress: 0,
       xp: 0,
       streak: 1,

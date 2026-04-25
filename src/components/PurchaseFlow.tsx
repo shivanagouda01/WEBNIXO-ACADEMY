@@ -20,7 +20,7 @@ import {
   Tag
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { supabase } from '../lib/supabase';
+// Removed Supabase import
 
 interface PurchaseFlowProps {
   course: {
@@ -29,7 +29,7 @@ interface PurchaseFlowProps {
     price?: number;
   } | null;
   onClose: () => void;
-  onSuccess: (userData: { name: string; email: string; phoneNumber: string; loginId: string; password?: string }) => void;
+  onSuccess: (userData: { name: string; email: string; phoneNumber: string; loginId: string; password?: string; university?: string; certificateId?: string }) => void;
   isDarkMode: boolean;
   basePrice: number;
   availableCoupons: { code: string; discount: number }[];
@@ -55,6 +55,7 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
   const [direction, setDirection] = useState(1);
+  const [generatedCertificateId] = useState(() => Math.random().toString(36).slice(2, 8).toUpperCase());
 
   const stepVariants = {
     initial: (direction: number) => ({
@@ -184,13 +185,8 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         returnUrl: `${window.location.origin}/?order_id={order_id}&status=verify`,
       };
 
-      // In the AI Studio environment, we show a message since redirect might be blocked in iframe
-      // or the user needs to know what's happening.
       await cashfree.checkout(checkoutOptions);
       
-      // We don't call setStep('success') here anymore because the return URL will handle it
-      // unless it's a popup flow that returns here.
-      // But just in case of popups/non-redirecting modes:
       const interval = setInterval(async () => {
         try {
           const verifyRes = await fetch(`/api/payment/verify/${orderData.order_id}`);
@@ -198,28 +194,7 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
           if (verifyData.status === "SUCCESS") {
             clearInterval(interval);
             
-            // Save to Supabase
-            const { error } = await supabase
-              .from('registrations')
-              .insert([
-                {
-                  full_name: formData.name,
-                  email: formData.email,
-                  phone_number: formData.phone,
-                  login_id: formData.loginId,
-                  password: formData.password,
-                  university: formData.university,
-                  course_id: course.id,
-                  course_title: course.title,
-                  amount: currentPrice,
-                  payment_method: paymentMethod,
-                  payment_id: verifyData.payment.cf_payment_id,
-                  created_at: new Date().toISOString()
-                }
-              ]);
-
-            if (error) console.error('Supabase Error:', error);
-
+            // Registration is now handled by persistence in App.tsx via handleStartLearning -> onSuccess
             setIsProcessing(false);
             setStep('success');
             confetti({
@@ -234,7 +209,6 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         }
       }, 3000);
 
-      // Clean up interval after 5 minutes
       setTimeout(() => clearInterval(interval), 300000);
 
     } catch (err: any) {
@@ -250,7 +224,9 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
       email: formData.email, 
       phoneNumber: formData.phone,
       loginId: formData.loginId,
-      password: formData.password 
+      password: formData.password,
+      university: formData.university,
+      certificateId: generatedCertificateId
     });
     onClose();
   };
