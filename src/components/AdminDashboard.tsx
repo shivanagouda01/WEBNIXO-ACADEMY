@@ -19,10 +19,14 @@ import {
   Lock,
   IndianRupee,
   ToggleLeft as Toggle,
-  ToggleRight
+  ToggleRight,
+  Wifi,
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
 import { AppUser, CourseSetting } from '../types';
 import { COURSES } from '../constants';
+import { checkSupabaseConnection } from '../lib/supabase';
 
 interface AdminDashboardProps {
   students: AppUser[];
@@ -51,32 +55,80 @@ export default function AdminDashboard({
 }: AdminDashboardProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [newCouponCode, setNewCouponCode] = useState('');
   const [newCouponDiscount, setNewCouponDiscount] = useState('');
 
+  React.useEffect(() => {
+    const checkConn = async () => {
+      const { success, error } = await checkSupabaseConnection();
+      if (success) {
+        setDbStatus('online');
+      } else {
+        setDbStatus('offline');
+        setConnectionError(error);
+      }
+    };
+    checkConn();
+  }, []);
+
   const handleUpdateCourseSetting = async (setting: CourseSetting) => {
     setSaveStatus('saving');
+    setLastError(null);
     try {
       await onUpdateCourseSetting(setting);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (e) {
+    } catch (e: any) {
       setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setLastError(e.message || 'Unknown error');
+      setTimeout(() => setSaveStatus('idle'), 5000);
     }
   };
 
   const handleUpdatePrice = async (price: number) => {
     setSaveStatus('saving');
+    setLastError(null);
     try {
       await onUpdatePrice(price);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (e) {
+    } catch (e: any) {
       setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      setLastError(e.message || 'Unknown error');
+      setTimeout(() => setSaveStatus('idle'), 5000);
+    }
+  };
+
+  const handleAddCoupon = async (code: string, discount: number) => {
+    setSaveStatus('saving');
+    setLastError(null);
+    try {
+      await onAddCoupon(code, discount);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (e: any) {
+      setSaveStatus('error');
+      setLastError(e.message || 'Unknown error');
+      setTimeout(() => setSaveStatus('idle'), 5000);
+    }
+  };
+
+  const handleRemoveCoupon = async (code: string) => {
+    setSaveStatus('saving');
+    setLastError(null);
+    try {
+      await onRemoveCoupon(code);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (e: any) {
+      setSaveStatus('error');
+      setLastError(e.message || 'Unknown error');
+      setTimeout(() => setSaveStatus('idle'), 5000);
     }
   };
 
@@ -109,24 +161,45 @@ export default function AdminDashboard({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+            {dbStatus === 'offline' && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl text-[10px] font-bold animate-pulse">
+                <WifiOff className="w-4 h-4" />
+                <span>DB OFFLINE: {connectionError?.substring(0, 30)}...</span>
+              </div>
+            )}
+            {dbStatus === 'online' && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-500 rounded-xl text-[10px] font-bold">
+                <Wifi className="w-4 h-4" />
+                <span>DB CONNECTED</span>
+              </div>
+            )}
+
+            <div className={`hidden md:flex flex-col items-start gap-1 p-1 pr-4 rounded-2xl border transition-all ${
               saveStatus === 'saving' ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' :
               saveStatus === 'saved' ? 'bg-green-500/10 border-green-500/30 text-green-500' :
               saveStatus === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-500' :
               isDarkMode ? 'bg-white/5 border-white/10 text-white/40' : 'bg-slate-100 border-slate-200 text-slate-400'
             }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                saveStatus === 'saving' ? 'bg-blue-500 animate-pulse' :
-                saveStatus === 'saved' ? 'bg-green-500' :
-                saveStatus === 'error' ? 'bg-red-500' :
-                'bg-current'
-              }`} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
-                {saveStatus === 'saving' ? 'Syncing...' :
-                 saveStatus === 'saved' ? 'All changes saved' :
-                 saveStatus === 'error' ? 'Sync failed' :
-                 'Cloud Sync Active'}
-              </span>
+              <div className="flex items-center gap-2 pl-3 py-1">
+                <div className={`w-2 h-2 rounded-full ${
+                  saveStatus === 'saving' ? 'bg-blue-500 animate-pulse' :
+                  saveStatus === 'saved' ? 'bg-green-500' :
+                  saveStatus === 'error' ? 'bg-red-500' :
+                  'bg-current'
+                }`} />
+                <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+                  {saveStatus === 'saving' ? 'Syncing...' :
+                   saveStatus === 'saved' ? 'All changes saved' :
+                   saveStatus === 'error' ? 'Sync failed' :
+                   'Cloud Sync Active'}
+                </span>
+              </div>
+              {saveStatus === 'error' && lastError && (
+                <div className="flex items-center gap-1 pl-3 pb-1 max-w-[150px]">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  <span className="text-[8px] truncate">{lastError}</span>
+                </div>
+              )}
             </div>
 
             <div className="hidden md:flex items-center gap-6 px-6 py-2 rounded-full glass border border-white/10 mr-4">
@@ -320,7 +393,7 @@ export default function AdminDashboard({
                   <button 
                     onClick={() => {
                       if (newCouponCode && newCouponDiscount) {
-                        onAddCoupon(newCouponCode, Number(newCouponDiscount));
+                        handleAddCoupon(newCouponCode, Number(newCouponDiscount));
                         setNewCouponCode('');
                         setNewCouponDiscount('');
                       }
@@ -340,7 +413,7 @@ export default function AdminDashboard({
                         <span className="text-xs text-text-muted">— ₹{coupon.discount} Off</span>
                       </div>
                       <button 
-                        onClick={() => onRemoveCoupon(coupon.code)}
+                        onClick={() => handleRemoveCoupon(coupon.code)}
                         className="p-1.5 text-red-500/50 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
