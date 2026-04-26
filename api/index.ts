@@ -101,26 +101,70 @@ app.get("/api/payment/verify/:orderId", async (req, res) => {
   }
 });
 
+import { Resend } from 'resend';
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 app.post("/api/mail/send-otp", async (req, res) => {
   try {
     const { email, otp, name } = req.body;
-    console.log(`[MAIL SERVICE] Sending OTP to ${email}: ${otp} for user ${name}`);
-    
-    // In a production app, you would use something like Resend:
-    /*
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: 'Webnixo Academy <otp@webnixo.com>',
-      to: email,
-      subject: 'Your Password Reset OTP',
-      html: `<h1>Hello ${name}</h1><p>Your OTP for password reset is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`
-    });
-    */
+    console.log(`[MAIL SERVICE] Attempting to send OTP to ${email}: ${otp}`);
 
-    res.json({ success: true, message: "OTP logged in server console (Simulated Email)" });
+    if (resend) {
+      const { data, error } = await resend.emails.send({
+        from: 'Webnixo Academy <support@auth.webnixo.in>', // Updated to your domain
+        to: [email],
+        subject: 'Password Reset OTP - Webnixo Academy',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+            <h2 style="color: #2563eb;">Password Reset Request</h2>
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>We received a request to reset your password. Use the following 6-digit OTP to proceed:</p>
+            <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p>This code will expire in 10 minutes.</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #64748b;">Webnixo Academy</p>
+          </div>
+        `
+      });
+
+      if (error) {
+        console.error("Resend Error Detail:", JSON.stringify(error, null, 2));
+        
+        // Handle the specific "Trial/Test" restriction or validation issues
+        if (error.name === 'validation_error' || (error as any).statusCode === 403 || error.message.includes('restriction')) {
+          const warningMessage = `Resend Validation Error: ${error.message}. Ensure auth.webnixo.in is verified in Resend dashboard.`;
+          console.warn(warningMessage);
+          console.log(`[DEVELOPER OTP] -> ${otp} for ${email}`);
+          
+          return res.json({ 
+            success: true, 
+            message: "OTP generated! (Resend domain validation pending)",
+            isRestricted: true,
+            otp: otp 
+          });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+
+      console.log("Email sent successfully:", data);
+      return res.json({ success: true, message: "OTP sent successfully" });
+    } else {
+      console.warn("RESEND_API_KEY not found. Logging OTP to console for development.");
+      console.log(`******************************************`);
+      console.log(`OTP for ${email}: ${otp}`);
+      console.log(`******************************************`);
+      return res.json({ 
+        success: true, 
+        message: "Developer Mode: OTP logged to server console. To send real emails, please add RESEND_API_KEY in Settings.",
+        devMode: true 
+      });
+    }
   } catch (error: any) {
-    console.error("Mail Error:", error.message);
-    res.status(500).json({ error: "Failed to process mail request" });
+    console.error("Mail Endpoint Error:", error);
+    res.status(500).json({ error: "Failed to send email" });
   }
 });
 

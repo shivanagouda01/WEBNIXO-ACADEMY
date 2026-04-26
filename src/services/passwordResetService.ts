@@ -36,11 +36,17 @@ export const passwordResetService = {
     
     // Call our internal API to simulate sending
     try {
-      await fetch('/api/mail/send-otp', {
+      const response = await fetch('/api/mail/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, name: user.full_name })
       });
+      const result = await response.json();
+      if (result.isRestricted) {
+        console.warn('RESEND RESTRICTION DETECTED:', result.message);
+        // For development/testing: auto-fill OTP if restricted
+        alert(`Note: Resend is restricted. For testing, your OTP is: ${result.otp}`);
+      }
     } catch (e) {
       console.warn('Mail API failed, but OTP is generated in DB:', e);
     }
