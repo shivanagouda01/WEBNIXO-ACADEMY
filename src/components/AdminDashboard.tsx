@@ -317,16 +317,40 @@ export default function AdminDashboard({
               </div>
             </div>
 
+            {lastError && (
+              <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm text-red-500 font-medium">{lastError}</p>
+                  {lastError.includes('column "title"') && (
+                    <p className="text-xs text-red-400">
+                      Error: The "title" column is missing in your database. Please execute the updated <strong>supabase_setup.sql</strong> in your Supabase SQL Editor to add it.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {COURSES.map((course) => {
                 const setting = courseSettings[course.id] || { course_id: course.id, price: programPrice, is_live: true };
                 return (
                   <div key={course.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-brand-primary/30 transition-all">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-grow">
                       <span className="text-2xl">{course.icon}</span>
-                      <div>
-                        <h4 className="font-bold text-sm text-text-main">{course.title}</h4>
-                        <p className="text-[10px] text-text-muted uppercase tracking-wider">{course.id}</p>
+                      <div className="flex-grow">
+                        <input 
+                          type="text" 
+                          defaultValue={setting.title || course.title}
+                          onBlur={(e) => {
+                            if (e.target.value !== (setting.title || course.title)) {
+                              handleUpdateCourseSetting({ ...setting, title: e.target.value });
+                            }
+                          }}
+                          className="w-full bg-[#05070a] border border-white/10 rounded-xl px-3 py-2 text-sm text-text-main font-bold focus:outline-none focus:border-brand-primary transition-all"
+                          placeholder="Course Title"
+                        />
+                        <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">{course.id}</p>
                       </div>
                     </div>
 
@@ -335,8 +359,13 @@ export default function AdminDashboard({
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">₹</span>
                         <input 
                           type="number" 
-                          value={setting.price}
-                          onChange={(e) => handleUpdateCourseSetting({ ...setting, price: Number(e.target.value) })}
+                          defaultValue={setting.price}
+                          onBlur={(e) => {
+                            const val = Number(e.target.value);
+                            if (val !== setting.price) {
+                              handleUpdateCourseSetting({ ...setting, price: val });
+                            }
+                          }}
                           className="w-24 bg-[#05070a] border border-white/10 rounded-xl pl-6 pr-2 py-2 text-sm text-text-main focus:outline-none focus:border-brand-primary transition-all font-mono font-bold"
                         />
                       </div>

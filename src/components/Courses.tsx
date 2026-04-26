@@ -56,7 +56,9 @@ export default function Courses({ onBuy, courseSettings = {}, defaultPrice = 199
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
           {visibleCourses.map((course) => {
-            const price = courseSettings[course.id]?.price || defaultPrice;
+            const setting = courseSettings[course.id];
+            const price = setting?.price || defaultPrice;
+            const title = setting?.title || course.title;
             
             return (
               <motion.div
@@ -67,21 +69,21 @@ export default function Courses({ onBuy, courseSettings = {}, defaultPrice = 199
                   scale: 1.02,
                   transition: { duration: 0.2 }
                 }}
-                onClick={() => onBuy?.({ id: course.id, title: course.title })}
+                onClick={() => onBuy?.({ id: course.id, title })}
                 className="group relative p-8 rounded-[40px] bg-bg-card border border-border-card hover:border-brand-primary/40 hover:bg-brand-primary/[0.02] transition-colors overflow-hidden cursor-pointer flex flex-col h-full shadow-lg hover:shadow-brand-primary/10"
               >
                 {/* Watermark */}
                 <div className="absolute top-4 right-10 text-5xl opacity-[0.02] font-black group-hover:opacity-[0.05] transition-opacity select-none pointer-events-none">
                   Webnixo
                 </div>
-
+                
                 <div className={`w-16 h-16 rounded-[24px] bg-gradient-to-br ${course.color} flex items-center justify-center text-3xl mb-8 shadow-xl group-hover:scale-110 transition-transform duration-500`}>
                   {course.icon}
                 </div>
 
                 <div className="flex-grow">
                   <h3 className="text-2xl font-bold mb-3 group-hover:text-brand-primary transition-colors tracking-tight">
-                    {course.title}
+                    {title}
                   </h3>
                   <div className="flex items-center gap-2 mb-4 bg-brand-primary/5 w-fit px-3 py-1 rounded-lg border border-brand-primary/10">
                     <IndianRupee className="w-4 h-4 text-brand-primary" />

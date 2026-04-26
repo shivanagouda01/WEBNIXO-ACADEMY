@@ -386,6 +386,7 @@ export default function App() {
           course_id: setting.course_id,
           price: setting.price,
           is_live: setting.is_live,
+          title: setting.title,
           updated_at: new Date().toISOString()
         }, { onConflict: 'course_id' });
       
@@ -695,6 +696,7 @@ export default function App() {
               isDarkMode={isDarkMode} 
               onToggleTheme={toggleTheme}
               onLogout={handleLogout}
+              courseSettings={courseSettings}
               onGenerateCertificate={async (cert) => {
                 try {
                   // Update local user state

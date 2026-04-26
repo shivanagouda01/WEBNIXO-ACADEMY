@@ -77,4 +77,5 @@ export interface CourseSetting {
   course_id: string;
   price: number;
   is_live: boolean;
+  title?: string;
 }

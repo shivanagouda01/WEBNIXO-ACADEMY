@@ -25,7 +25,7 @@ import {
   X
 } from 'lucide-react';
 import { CURRICULUM, INITIAL_USER, COURSES } from '../constants';
-import { Module, Lesson, AppUser, CourseCertificate } from '../types';
+import { Module, Lesson, AppUser, CourseCertificate, CourseSetting } from '../types';
 import confetti from 'canvas-confetti';
 import ProfessionalCertificate from './ProfessionalCertificate';
 
@@ -35,9 +35,10 @@ interface DashboardProps {
   onToggleTheme: () => void;
   onLogout: () => void;
   onGenerateCertificate: (cert: CourseCertificate) => void;
+  courseSettings?: Record<string, CourseSetting>;
 }
 
-export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, onGenerateCertificate }: DashboardProps) {
+export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, onGenerateCertificate, courseSettings = {} }: DashboardProps) {
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -79,11 +80,14 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
   };
 
   const handleGenerateCertificate = () => {
+    const activeCourse = COURSES.find(c => c.id === activeCourseId);
+    const courseTitle = courseSettings[activeCourseId || '']?.title || activeCourse?.title || 'Course Mastery';
+    
     const code = user.certificateId || `CERT-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const cert: CourseCertificate = {
       code,
       studentName: user.name,
-      courseName: 'Python Mastery',
+      courseName: courseTitle,
       date: new Date().toISOString().split('T')[0]
     };
     setGeneratedCert(cert);
@@ -209,7 +213,9 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
                         </span>
                       </div>
                       
-                      <h3 className="text-xl font-bold mb-4 group-hover:text-brand-primary transition-colors">{course.title}</h3>
+                      <h3 className="text-xl font-bold mb-4 group-hover:text-brand-primary transition-colors">
+                        {courseSettings[course.id]?.title || course.title}
+                      </h3>
                       
                       <div className="mt-auto space-y-6">
                         <div className="space-y-2">
@@ -279,7 +285,7 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-xl font-bold flex items-center gap-2">
                         <BookOpen className="w-5 h-5 text-blue-500" />
-                        {COURSES.find(c => c.id === activeCourseId)?.title} - Modules
+                        {courseSettings[activeCourseId || '']?.title || COURSES.find(c => c.id === activeCourseId)?.title} - Modules
                       </h2>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -423,7 +429,7 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
                             certificate={generatedCert || {
                               code: user.certificateId!,
                               studentName: user.name,
-                              courseName: 'Python Mastery',
+                              courseName: courseSettings[activeCourseId || '']?.title || COURSES.find(c => c.id === activeCourseId)?.title || 'Course Mastery',
                               date: new Date().toISOString().split('T')[0]
                             }} 
                             isDarkMode={false} 
