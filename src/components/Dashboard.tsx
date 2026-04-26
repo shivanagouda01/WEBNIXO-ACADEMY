@@ -21,11 +21,13 @@ import {
   Moon,
   Sun,
   Search,
-  Download
+  Download,
+  X
 } from 'lucide-react';
 import { CURRICULUM, INITIAL_USER, COURSES } from '../constants';
 import { Module, Lesson, AppUser, CourseCertificate } from '../types';
 import confetti from 'canvas-confetti';
+import ProfessionalCertificate from './ProfessionalCertificate';
 
 interface DashboardProps {
   user: AppUser;
@@ -383,45 +385,69 @@ export default function Dashboard({ user, isDarkMode, onToggleTheme, onLogout, o
                   </section>
                   
                   {/* Certificate Generation */}
-                  <section className={`p-6 rounded-2xl border transition-all ${user.progress >= 100 ? 'bg-brand-primary/10 border-brand-primary text-text-main' : 'bg-white/[0.03] border-white/10 opacity-60'}`}>
-                    <h3 className="font-bold mb-2 flex items-center gap-2">
-                      <Award className="w-5 h-5 text-yellow-500" />
-                      Course Certificate
-                    </h3>
-                    <p className="text-xs text-text-muted mb-4 font-medium">
-                      {user.progress >= 100 
-                        ? 'Congratulations! You have completed the course. Generate your verified certificate now.' 
-                        : 'Complete all modules to unlock your industry-recognized certificate.'}
-                    </p>
-                    {generatedCert ? (
-                      <div className="space-y-4">
-                        <div className="p-4 rounded-xl bg-bg-card border border-border-card text-center">
-                          <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest mb-1">Verification Code</p>
-                          <p className="font-mono font-bold text-brand-primary">{generatedCert.code}</p>
-                        </div>
-                        <button 
-                          onClick={() => window.print()}
-                          className="w-full py-3 bg-brand-primary rounded-xl text-xs font-bold text-white hover:bg-brand-primary/80 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Copy className="w-4 h-4" /> Download PDF
-                        </button>
+                  <section 
+                    className={`p-6 rounded-[32px] border transition-all ${user.progress >= 100 ? 'shadow-xl' : 'opacity-60'}`}
+                    style={user.progress >= 100 ? { backgroundColor: '#ffffff', borderColor: '#f1f5f9' } : { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                      <div>
+                        <h3 className="text-xl font-bold mb-2 flex items-center gap-3">
+                          <Award className="w-6 h-6 text-yellow-500" />
+                          Official Course Certificate
+                        </h3>
+                        <p className="text-sm font-medium" style={{ color: '#64748b' }}>
+                          {user.progress >= 100 
+                             ? 'Congratulations! Your industry-recognized verified certificate is now available.'
+                             : 'Complete all modules and assignments to unlock your official verification.'}
+                        </p>
                       </div>
-                    ) : (
-                      <button 
-                        disabled={user.progress < 100}
-                        onClick={handleGenerateCertificate}
-                        className={`w-full py-3 rounded-xl text-xs font-bold transition-all ${
-                          user.progress >= 100 
-                            ? 'bg-brand-primary text-white hover:scale-105 shadow-lg shadow-brand-primary/20' 
-                            : 'bg-white/5 text-text-muted cursor-not-allowed'
-                        }`}
+                      
+                      {!generatedCert && !user.certificateId && user.progress >= 100 && (
+                        <button 
+                          onClick={handleGenerateCertificate}
+                          className="px-8 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold hover:scale-105 shadow-xl shadow-brand-primary/20 transition-all flex items-center gap-3"
+                        >
+                          <Award className="w-5 h-5" />
+                          Generate Now
+                        </button>
+                      )}
+                    </div>
+
+                    {(generatedCert || user.certificateId) ? (
+                      <div className="space-y-8">
+                        <div 
+                          className="rounded-[40px] p-4 sm:p-10 border overflow-hidden"
+                          style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}
+                        >
+                          <ProfessionalCertificate 
+                            certificate={generatedCert || {
+                              code: user.certificateId!,
+                              studentName: user.name,
+                              courseName: 'Python Mastery',
+                              date: new Date().toISOString().split('T')[0]
+                            }} 
+                            isDarkMode={false} 
+                          />
+                        </div>
+                      </div>
+                    ) : user.progress < 100 && (
+                      <div 
+                        className="aspect-[1.5/1] rounded-[40px] border-2 border-dashed flex flex-col items-center justify-center p-12 text-center group"
+                        style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}
                       >
-                        Generate Certificate
-                      </button>
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg mb-4 group-hover:scale-110 transition-transform">
+                          <Award className="w-10 h-10 text-slate-300" />
+                        </div>
+                        <p className="font-medium max-w-xs uppercase tracking-widest text-[10px]" style={{ color: '#94a3b8' }}>
+                          Complete the course to see your certificate here
+                        </p>
+                      </div>
                     )}
                   </section>
                 </div>
               </div>
+
+              {/* Removed Certificate Modal Overlay */}
             </motion.div>
           ) : !selectedLesson ? (
             /* Lesson List View */

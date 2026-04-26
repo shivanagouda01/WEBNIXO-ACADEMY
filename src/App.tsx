@@ -680,7 +680,6 @@ export default function App() {
             <CertificateVerification 
               onBack={() => handleNavigate('home')} 
               isDarkMode={isDarkMode}
-              certificates={certificates}
             />
           </motion.div>
         ) : (
@@ -696,7 +695,24 @@ export default function App() {
               isDarkMode={isDarkMode} 
               onToggleTheme={toggleTheme}
               onLogout={handleLogout}
-              onGenerateCertificate={(cert) => setCertificates(prev => [...prev, cert])}
+              onGenerateCertificate={async (cert) => {
+                try {
+                  // Update local user state
+                  setCurrentUser(prev => prev ? { ...prev, certificateId: cert.code } : null);
+                  
+                  // Update Supabase
+                  const { error } = await supabase
+                    .from('registrations')
+                    .update({ certificate_id: cert.code })
+                    .eq('id', currentUser?.id);
+                  
+                  if (error) throw error;
+                  
+                  console.log('Certificate ID saved to Supabase');
+                } catch (err) {
+                  console.error('Failed to save certificate ID:', err);
+                }
+              }}
             />
           </motion.div>
         )}

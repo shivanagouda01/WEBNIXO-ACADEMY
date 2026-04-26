@@ -1,31 +1,57 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, CheckCircle2, XCircle, ArrowLeft, Copy, Check, Award, Calendar, User as UserIcon, BookOpen } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, ArrowLeft, Copy, Check, Award, Calendar, User as UserIcon, BookOpen, Download } from 'lucide-react';
 import { CourseCertificate } from '../types';
+import { supabase } from '../lib/supabase';
+import ProfessionalCertificate from './ProfessionalCertificate';
 
 interface CertificateVerificationProps {
   onBack: () => void;
   isDarkMode: boolean;
-  certificates: CourseCertificate[];
 }
 
-export default function CertificateVerification({ onBack, isDarkMode, certificates }: CertificateVerificationProps) {
+export default function CertificateVerification({ onBack, isDarkMode }: CertificateVerificationProps) {
   const [code, setCode] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<CourseCertificate | null | 'not_found'>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!code.trim()) return;
+
     setIsSearching(true);
     setResult(null);
 
-    // Simulate verification delay
-    setTimeout(() => {
-      const found = certificates.find(c => c.code.toUpperCase() === code.toUpperCase());
-      setResult(found || 'not_found');
+    try {
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('full_name, course_title, certificate_id, created_at')
+        .eq('certificate_id', code.trim().toUpperCase())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setResult({
+          code: data.certificate_id,
+          studentName: data.full_name,
+          courseName: data.course_title,
+          date: new Date(data.created_at).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          })
+        });
+      } else {
+        setResult('not_found');
+      }
+    } catch (err) {
+      console.error('Verification error:', err);
+      setResult('not_found');
+    } finally {
       setIsSearching(false);
-    }, 1500);
+    }
   };
 
   const handleCopy = () => {
@@ -100,62 +126,70 @@ export default function CertificateVerification({ onBack, isDarkMode, certificat
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="p-8 rounded-[32px] bg-green-500/5 border border-green-500/20"
+              className="space-y-12"
             >
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="w-full md:w-1/3 aspect-[4/3] bg-bg-card border border-border-card rounded-2xl flex items-center justify-center relative overflow-hidden group">
-                  <Award className="w-20 h-20 text-brand-primary/20 group-hover:scale-110 transition-transform" />
-                  <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4 text-[8px] font-mono text-text-muted truncate">
-                    {result.code}
+              <div className="p-8 rounded-[32px] bg-green-500/5 border border-green-500/20">
+                <div className="flex flex-col md:flex-row items-center gap-8">
+                  <div className="w-full md:w-1/3 aspect-[4/3] bg-bg-card border border-border-card rounded-2xl flex items-center justify-center relative overflow-hidden group">
+                    <Award className="w-20 h-20 text-brand-primary/20 group-hover:scale-110 transition-transform" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-[8px] font-mono text-text-muted truncate">
+                      {result.code}
+                    </div>
+                  </div>
+
+                  <div className="flex-grow space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Verified & Valid</span>
+                      </div>
+                      <button 
+                        onClick={handleCopy}
+                        className="flex items-center gap-2 text-xs text-text-muted hover:text-text-main transition-colors"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? 'Copied!' : 'Copy Code'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-text-muted">
+                          <UserIcon className="w-3 h-3" />
+                          <span className="text-[8px] font-bold uppercase tracking-widest">Student Name</span>
+                        </div>
+                        <p className="text-lg font-bold">{result.studentName}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-text-muted">
+                          <BookOpen className="w-3 h-3" />
+                          <span className="text-[8px] font-bold uppercase tracking-widest">Course Name</span>
+                        </div>
+                        <p className="text-lg font-bold">{result.courseName}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-bold flex items-center gap-3">
+                    <Award className="w-6 h-6 text-brand-primary" />
+                    Certificate Preview
+                  </h3>
+                  <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-text-muted">
+                    <Download className="w-4 h-4" />
+                    Verified digital copy
                   </div>
                 </div>
 
-                <div className="flex-grow space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Verified & Valid</span>
-                    </div>
-                    <button 
-                      onClick={handleCopy}
-                      className="flex items-center gap-2 text-xs text-text-muted hover:text-text-main transition-colors"
-                    >
-                      {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      {copied ? 'Copied!' : 'Copy Code'}
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-text-muted">
-                        <UserIcon className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Student Name</span>
-                      </div>
-                      <p className="text-xl font-bold">{result.studentName}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-text-muted">
-                        <BookOpen className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Course Name</span>
-                      </div>
-                      <p className="text-xl font-bold">{result.courseName}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-text-muted">
-                        <Calendar className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Issue Date</span>
-                      </div>
-                      <p className="text-xl font-bold">{result.date}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-text-muted">
-                        <Award className="w-4 h-4" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Verification Code</span>
-                      </div>
-                      <p className="text-xl font-mono font-bold text-brand-primary">{result.code}</p>
-                    </div>
-                  </div>
+                <div className="overflow-x-auto pb-8 -mx-6 px-6 sm:mx-0 sm:px-0">
+                  <ProfessionalCertificate 
+                    certificate={result} 
+                    isDarkMode={isDarkMode} 
+                  />
                 </div>
               </div>
             </motion.div>
