@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
+import { syncRegistrationToCloud } from '../services/registrationService';
 
 interface PurchaseFlowProps {
   course: {
@@ -118,19 +119,47 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
     }
   };
 
+  const handleRegistrationSync = async (verifyData?: any) => {
+    const syncResult = await syncRegistrationToCloud({
+      full_name: formData.name,
+      email: formData.email,
+      phone_number: formData.phone,
+      login_id: formData.loginId,
+      password: formData.password,
+      university: formData.university,
+      course_id: course.id,
+      course_title: course.title,
+      amount: currentPrice,
+      payment_method: paymentMethod,
+      payment_id: verifyData?.payment?.cf_payment_id || 'manual_' + formData.loginId,
+      certificate_id: generatedCertificateId
+    });
+
+    if (syncResult.success) {
+      localStorage.removeItem('pending_registration');
+      return true;
+    } else {
+      alert(`Warning: Cloud sync failed: ${syncResult.error}. Please contact support with your payment ID.`);
+      return false;
+    }
+  };
+
   const handlePayment = async () => {
     setIsProcessing(true);
     
     try {
       if (currentPrice <= 0) {
         // Special case for free courses or 100% discount
-        setStep('success');
-        confetti({
-          particleCount: 150,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#4F46E5', '#9333EA', '#06B6D4']
-        });
+        const success = await handleRegistrationSync();
+        if (success) {
+          setStep('success');
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#4F46E5', '#9333EA', '#06B6D4']
+          });
+        }
         setIsProcessing(false);
         return;
       }
@@ -203,48 +232,7 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
           if (verifyData.status === "SUCCESS") {
             clearInterval(interval);
             
-            // Save to Supabase
-            console.log('Attempting to save registration to Supabase...', {
-              login_id: formData.loginId,
-              email: formData.email
-            });
-
-            try {
-              const { data: supabaseData, error: supabaseError } = await supabase
-                .from('registrations')
-                .insert([
-                  {
-                    full_name: formData.name,
-                    email: formData.email,
-                    phone_number: formData.phone,
-                    login_id: formData.loginId,
-                    password: formData.password,
-                    university: formData.university,
-                    course_id: course.id,
-                    course_title: course.title,
-                    amount: currentPrice,
-                    payment_method: paymentMethod,
-                    payment_id: verifyData.payment.cf_payment_id || 'manual',
-                    certificate_id: generatedCertificateId,
-                    created_at: new Date().toISOString()
-                  }
-                ])
-                .select();
-              
-              if (supabaseError) {
-                console.error('Supabase registration failed (Error Object):', supabaseError);
-                throw new Error(`Supabase Error: ${supabaseError.message} (${supabaseError.code})`);
-              }
-
-              // Clear pending data on success
-              localStorage.removeItem('pending_registration');
-              
-              console.log('Supabase registration successful:', supabaseData);
-            } catch (err: any) {
-              console.error('Final attempt failed for Supabase registration:', err);
-              // We notify the user but let them proceed since payment was successful
-              alert(`Warning: Payment confirmed, but we couldn't sync your login data to the cloud. Please take a screenshot of this error and your payment receipt: ${err.message || 'Network Error'}`);
-            }
+            const syncSuccess = await handleRegistrationSync(verifyData);
 
             setIsProcessing(false);
             setStep('success');

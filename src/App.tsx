@@ -19,6 +19,7 @@ import CertificateVerification from './components/CertificateVerification';
 import { AppUser, CourseCertificate, CourseSetting } from './types';
 import { INITIAL_USER, COURSES } from './constants';
 import { supabase } from './lib/supabase';
+import { syncRegistrationToCloud } from './services/registrationService';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'dashboard' | 'login' | 'verify' | 'admin-login' | 'admin-dashboard'>('home');
@@ -270,38 +271,30 @@ export default function App() {
             if (pendingDataStr) {
               const pendingData = JSON.parse(pendingDataStr);
               
-              console.log('Recovered pending data, syncing to Supabase...');
-              const { error } = await supabase
-                .from('registrations')
-                .insert([{
-                  full_name: pendingData.name,
-                  email: pendingData.email,
-                  phone_number: pendingData.phone,
-                  login_id: pendingData.loginId,
-                  password: pendingData.password,
-                  university: pendingData.university || '',
-                  course_id: pendingData.courseId,
-                  course_title: pendingData.courseTitle,
-                  amount: pendingData.amount,
-                  payment_method: 'online',
-                  payment_id: verifyData.payment?.cf_payment_id || orderId,
-                  certificate_id: pendingData.certificateId,
-                  created_at: new Date().toISOString()
-                }]);
+              const result = await syncRegistrationToCloud({
+                full_name: pendingData.name,
+                email: pendingData.email,
+                phone_number: pendingData.phone,
+                login_id: pendingData.loginId,
+                password: pendingData.password,
+                university: pendingData.university,
+                course_id: pendingData.courseId,
+                course_title: pendingData.courseTitle,
+                amount: pendingData.amount,
+                payment_method: 'online',
+                payment_id: verifyData.payment?.cf_payment_id || orderId,
+                certificate_id: pendingData.certificateId
+              });
                 
-              if (!error) {
+              if (result.success) {
                 localStorage.removeItem('pending_registration');
-                alert("Payment Success! Your account is now active on the cloud.");
-                // Clean URL
+                if (!result.alreadyExists) {
+                  alert("Registration Successful! Welcome to Webnixo Academy.");
+                }
                 window.history.replaceState({}, document.title, window.location.pathname);
                 fetchRegistrations();
               } else {
-                console.error("Post-redirect sync error:", error);
-                if (error.code === '23505') {
-                  // Already exists, just clean up
-                  localStorage.removeItem('pending_registration');
-                  window.history.replaceState({}, document.title, window.location.pathname);
-                }
+                console.error("Post-redirect sync error:", result.error);
               }
             }
           }
