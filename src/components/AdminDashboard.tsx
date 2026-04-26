@@ -39,6 +39,7 @@ interface AdminDashboardProps {
   coupons: { code: string; discount: number }[];
   onAddCoupon: (code: string, discount: number) => void;
   onRemoveCoupon: (code: string) => void;
+  onRefreshRegistrations: () => Promise<boolean>;
 }
 
 export default function AdminDashboard({ 
@@ -51,10 +52,12 @@ export default function AdminDashboard({
   onUpdateCourseSetting,
   coupons,
   onAddCoupon,
-  onRemoveCoupon
+  onRemoveCoupon,
+  onRefreshRegistrations
 }: AdminDashboardProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -145,6 +148,20 @@ export default function AdminDashboard({
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    const success = await onRefreshRegistrations();
+    if (success) {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } else {
+      setSaveStatus('error');
+      setLastError('Failed to fetch registrations');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+    setIsRefreshing(false);
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-[#080b11] text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300 pb-20`}>
       {/* Header */}
@@ -161,6 +178,19 @@ export default function AdminDashboard({
           </div>
 
           <div className="flex items-center gap-4">
+            <button 
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className={`p-3 rounded-2xl border transition-all ${
+                isRefreshing ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' : 
+                isDarkMode ? 'bg-white/5 border-white/10 text-white/60 hover:text-white' : 'bg-slate-200 border-slate-300 text-slate-600 hover:text-slate-900'
+              } flex items-center justify-center`}
+              title="Refresh Registrations"
+            >
+              <div className={`${isRefreshing ? 'animate-spin' : ''}`}>
+                <Wifi className="w-5 h-5" />
+              </div>
+            </button>
             {dbStatus === 'offline' && (
               <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl text-[10px] font-bold animate-pulse">
                 <WifiOff className="w-4 h-4" />

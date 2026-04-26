@@ -148,44 +148,65 @@ export default function App() {
   }, [isDarkMode]);
 
 
-  useEffect(() => {
-    const fetchRegistrations = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('registrations')
-          .select('*')
-          .order('created_at', { ascending: false });
+  const fetchRegistrations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        if (data && !error) {
-          const supabaseUsers: AppUser[] = data.map(reg => ({
-            id: reg.id.toString(),
-            name: reg.full_name,
-            email: reg.email,
-            phoneNumber: reg.phone_number,
-            loginId: reg.login_id,
-            password: reg.password,
-            certificateId: reg.certificate_id,
-            university: reg.university,
-            progress: 0,
-            xp: 0,
-            streak: 1,
-            completedLessons: [],
-            enrolledCourses: [reg.course_id],
-            badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
-          }));
+      if (data && !error) {
+        const supabaseUsers: AppUser[] = data.map(reg => ({
+          id: reg.id.toString(),
+          name: reg.full_name,
+          email: reg.email,
+          phoneNumber: reg.phone_number,
+          loginId: reg.login_id,
+          password: reg.password,
+          certificateId: reg.certificate_id,
+          university: reg.university,
+          progress: 0,
+          xp: 0,
+          streak: 1,
+          completedLessons: [],
+          enrolledCourses: [reg.course_id],
+          badges: [{ id: 'b1', name: 'Beginner', icon: '🌱', unlocked: true }]
+        }));
 
-          // Merge local users with Supabase users, avoiding duplicates by loginId
-          setUsers(prev => {
-            const existingIds = new Set(prev.map(u => u.loginId));
-            const newOnes = supabaseUsers.filter(u => !existingIds.has(u.loginId));
-            return [...prev, ...newOnes];
+        setUsers(prev => {
+          // Create a map of existing users by loginId to prevent duplicates but keep local state
+          const userMap = new Map<string, AppUser>(prev.map(u => [u.loginId, u]));
+          
+          supabaseUsers.forEach(u => {
+            const existing = userMap.get(u.loginId);
+            if (!existing) {
+              userMap.set(u.loginId, u);
+            } else {
+              // Update existing user with Supabase data if needed
+              userMap.set(u.loginId, {
+                ...existing,
+                name: u.name,
+                email: u.email,
+                phoneNumber: u.phoneNumber,
+                password: u.password,
+                certificateId: u.certificateId,
+                university: u.university
+              });
+            }
           });
-        }
-      } catch (err) {
-        console.error('Failed to fetch from Supabase:', err);
+          
+          return Array.from(userMap.values());
+        });
+        return true;
       }
-    };
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to fetch from Supabase:', err);
+      return false;
+    }
+  };
 
+  useEffect(() => {
     if (isAdminLoggedIn) {
       fetchRegistrations();
     }
@@ -229,6 +250,68 @@ export default function App() {
     };
 
     fetchCoupons();
+  }, []);
+
+  // Handle Payment Recovery after Redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    const status = params.get('status');
+
+    if (orderId && status === 'verify') {
+      const finishRegistration = async () => {
+        try {
+          console.log('Verifying payment for order:', orderId);
+          const verifyRes = await fetch(`/api/payment/verify/${orderId}`);
+          const verifyData = await verifyRes.json();
+          
+          if (verifyData.status === "SUCCESS") {
+            const pendingDataStr = localStorage.getItem('pending_registration');
+            if (pendingDataStr) {
+              const pendingData = JSON.parse(pendingDataStr);
+              
+              console.log('Recovered pending data, syncing to Supabase...');
+              const { error } = await supabase
+                .from('registrations')
+                .insert([{
+                  full_name: pendingData.name,
+                  email: pendingData.email,
+                  phone_number: pendingData.phone,
+                  login_id: pendingData.loginId,
+                  password: pendingData.password,
+                  university: pendingData.university || '',
+                  course_id: pendingData.courseId,
+                  course_title: pendingData.courseTitle,
+                  amount: pendingData.amount,
+                  payment_method: 'online',
+                  payment_id: verifyData.payment?.cf_payment_id || orderId,
+                  certificate_id: pendingData.certificateId,
+                  created_at: new Date().toISOString()
+                }]);
+                
+              if (!error) {
+                localStorage.removeItem('pending_registration');
+                alert("Payment Success! Your account is now active on the cloud.");
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                fetchRegistrations();
+              } else {
+                console.error("Post-redirect sync error:", error);
+                if (error.code === '23505') {
+                  // Already exists, just clean up
+                  localStorage.removeItem('pending_registration');
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Verification error on return:", err);
+        }
+      };
+      
+      finishRegistration();
+    }
   }, []);
 
   useEffect(() => {
@@ -590,6 +673,7 @@ export default function App() {
               coupons={coupons}
               onAddCoupon={addCoupon}
               onRemoveCoupon={removeCoupon}
+              onRefreshRegistrations={fetchRegistrations}
             />
           </motion.div>
         ) : currentPage === 'verify' ? (

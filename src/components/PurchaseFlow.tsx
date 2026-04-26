@@ -172,7 +172,16 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
         throw new Error('Payment session ID missing from response');
       }
 
-      // 2. Initialize Cashfree Checkout
+      // 2. Save registration data temporarily to recover after redirect
+      localStorage.setItem('pending_registration', JSON.stringify({
+        ...formData,
+        courseId: course.id,
+        courseTitle: course.title,
+        amount: currentPrice,
+        certificateId: generatedCertificateId
+      }));
+
+      // 3. Initialize Cashfree Checkout
       const cashfreeMode = import.meta.env.VITE_CASHFREE_MODE || 'sandbox';
       console.log('Initializing Cashfree SDK:', { mode: cashfreeMode, sessionId: orderData.payment_session_id });
       
@@ -195,25 +204,47 @@ export default function PurchaseFlow({ course, onClose, onSuccess, isDarkMode, b
             clearInterval(interval);
             
             // Save to Supabase
-            await supabase
-              .from('registrations')
-              .insert([
-                {
-                  full_name: formData.name,
-                  email: formData.email,
-                  phone_number: formData.phone,
-                  login_id: formData.loginId,
-                  password: formData.password,
-                  university: formData.university,
-                  course_id: course.id,
-                  course_title: course.title,
-                  amount: currentPrice,
-                  payment_method: paymentMethod,
-                  payment_id: verifyData.payment.cf_payment_id,
-                  certificate_id: generatedCertificateId,
-                  created_at: new Date().toISOString()
-                }
-              ]);
+            console.log('Attempting to save registration to Supabase...', {
+              login_id: formData.loginId,
+              email: formData.email
+            });
+
+            try {
+              const { data: supabaseData, error: supabaseError } = await supabase
+                .from('registrations')
+                .insert([
+                  {
+                    full_name: formData.name,
+                    email: formData.email,
+                    phone_number: formData.phone,
+                    login_id: formData.loginId,
+                    password: formData.password,
+                    university: formData.university,
+                    course_id: course.id,
+                    course_title: course.title,
+                    amount: currentPrice,
+                    payment_method: paymentMethod,
+                    payment_id: verifyData.payment.cf_payment_id || 'manual',
+                    certificate_id: generatedCertificateId,
+                    created_at: new Date().toISOString()
+                  }
+                ])
+                .select();
+              
+              if (supabaseError) {
+                console.error('Supabase registration failed (Error Object):', supabaseError);
+                throw new Error(`Supabase Error: ${supabaseError.message} (${supabaseError.code})`);
+              }
+
+              // Clear pending data on success
+              localStorage.removeItem('pending_registration');
+              
+              console.log('Supabase registration successful:', supabaseData);
+            } catch (err: any) {
+              console.error('Final attempt failed for Supabase registration:', err);
+              // We notify the user but let them proceed since payment was successful
+              alert(`Warning: Payment confirmed, but we couldn't sync your login data to the cloud. Please take a screenshot of this error and your payment receipt: ${err.message || 'Network Error'}`);
+            }
 
             setIsProcessing(false);
             setStep('success');
