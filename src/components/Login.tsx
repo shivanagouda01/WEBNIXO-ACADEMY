@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Lock, User as UserIcon, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
+import ForgotPassword from './ForgotPassword';
 
 interface LoginProps {
   onLogin: (loginId: string, password: string) => void;
@@ -14,6 +15,7 @@ export default function Login({ onLogin, onBack, isDarkMode }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [view, setView] = useState<'login' | 'forgot'>('login');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +28,14 @@ export default function Login({ onLogin, onBack, isDarkMode }: LoginProps) {
       setIsLoading(false);
     }, 1500);
   };
+
+  if (view === 'forgot') {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-6 ${isDarkMode ? 'bg-[#05070a]' : 'bg-slate-50'}`}>
+        <ForgotPassword isDarkMode={isDarkMode} onBack={() => setView('login')} />
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-6 ${isDarkMode ? 'bg-[#05070a]' : 'bg-slate-50'}`}>
@@ -90,7 +100,11 @@ export default function Login({ onLogin, onBack, isDarkMode }: LoginProps) {
               <input type="checkbox" className="rounded border-border-card bg-bg-card text-brand-primary focus:ring-brand-primary" />
               Remember me
             </label>
-            <button type="button" className="text-brand-primary hover:underline font-medium">
+            <button 
+              type="button" 
+              onClick={() => setView('forgot')}
+              className="text-brand-primary hover:underline font-medium"
+            >
               Forgot Password?
             </button>
           </div>

@@ -101,6 +101,29 @@ app.get("/api/payment/verify/:orderId", async (req, res) => {
   }
 });
 
+app.post("/api/mail/send-otp", async (req, res) => {
+  try {
+    const { email, otp, name } = req.body;
+    console.log(`[MAIL SERVICE] Sending OTP to ${email}: ${otp} for user ${name}`);
+    
+    // In a production app, you would use something like Resend:
+    /*
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: 'Webnixo Academy <otp@webnixo.com>',
+      to: email,
+      subject: 'Your Password Reset OTP',
+      html: `<h1>Hello ${name}</h1><p>Your OTP for password reset is: <strong>${otp}</strong>. It expires in 10 minutes.</p>`
+    });
+    */
+
+    res.json({ success: true, message: "OTP logged in server console (Simulated Email)" });
+  } catch (error: any) {
+    console.error("Mail Error:", error.message);
+    res.status(500).json({ error: "Failed to process mail request" });
+  }
+});
+
 // Helper for Vite in development
 async function setupVite(app: any) {
   if (process.env.NODE_ENV !== "production") {
