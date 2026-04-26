@@ -112,20 +112,20 @@ app.post("/api/mail/send-otp", async (req, res) => {
 
     if (resend) {
       const { data, error } = await resend.emails.send({
-        from: 'Webnixo Academy <support@auth.webnixo.in>', // Updated to your domain
+        from: 'Webnixo Academy <noreply@auth.webnixo.in>', // Using your verified sender
         to: [email],
         subject: 'Password Reset OTP - Webnixo Academy',
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-            <h2 style="color: #2563eb;">Password Reset Request</h2>
+          <div style="font-family: sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #2563eb; text-align: center;">Webnixo Academy</h2>
             <p>Hello <strong>${name}</strong>,</p>
             <p>We received a request to reset your password. Use the following 6-digit OTP to proceed:</p>
-            <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a; margin: 20px 0;">
+            <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a; margin: 20px 0; border: 1px dashed #cbd5e1;">
               ${otp}
             </div>
-            <p>This code will expire in 10 minutes.</p>
+            <p style="font-size: 14px; color: #64748b;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #64748b;">Webnixo Academy</p>
+            <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; 2024 Webnixo Academy. All rights reserved.</p>
           </div>
         `
       });
@@ -133,15 +133,14 @@ app.post("/api/mail/send-otp", async (req, res) => {
       if (error) {
         console.error("Resend Error Detail:", JSON.stringify(error, null, 2));
         
-        // Handle the specific "Trial/Test" restriction or validation issues
-        if (error.name === 'validation_error' || (error as any).statusCode === 403 || error.message.includes('restriction')) {
-          const warningMessage = `Resend Validation Error: ${error.message}. Ensure auth.webnixo.in is verified in Resend dashboard.`;
-          console.warn(warningMessage);
-          console.log(`[DEVELOPER OTP] -> ${otp} for ${email}`);
-          
+        // Handle restriction or validation errors gracefully for the UI
+        const isRestricted = error.name === 'validation_error' || (error as any).statusCode === 403 || error.message.includes('restriction');
+        
+        if (isRestricted) {
+          console.warn(`Resend restriction: ${error.message}`);
           return res.json({ 
             success: true, 
-            message: "OTP generated! (Resend domain validation pending)",
+            message: "OTP generated (Ready for testing on your registered email)",
             isRestricted: true,
             otp: otp 
           });
@@ -152,14 +151,19 @@ app.post("/api/mail/send-otp", async (req, res) => {
       console.log("Email sent successfully:", data);
       return res.json({ success: true, message: "OTP sent successfully" });
     } else {
-      console.warn("RESEND_API_KEY not found. Logging OTP to console for development.");
-      console.log(`******************************************`);
-      console.log(`OTP for ${email}: ${otp}`);
-      console.log(`******************************************`);
+      const isVercel = !!process.env.VERCEL;
+      const msg = isVercel 
+        ? "Configuration Missing: Please add RESEND_API_KEY to your Vercel Environment Variables to send actual emails."
+        : "Developer Mode: RESEND_API_KEY not found. OTP logged to server console.";
+      
+      console.warn(msg);
+      console.log(`[LOCAL DEV OTP] -> ${otp} for ${email}`);
+      
       return res.json({ 
         success: true, 
-        message: "Developer Mode: OTP logged to server console. To send real emails, please add RESEND_API_KEY in Settings.",
-        devMode: true 
+        message: msg,
+        devMode: true,
+        otp: otp // Always return OTP in dev/missing-config mode so users aren't locked out during setup
       });
     }
   } catch (error: any) {
