@@ -26,12 +26,12 @@ export default function ProfessionalCertificate({ certificate, isDarkMode, onDow
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const canvas = await html2canvas(element, {
-        scale: 2, 
+        scale: 3, 
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: 1100,
-        height: 778,
+        windowWidth: 1200,
+        windowHeight: 900,
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.querySelector('[data-certificate="true"]') as HTMLElement;
           if (clonedElement) {
@@ -60,6 +60,10 @@ export default function ProfessionalCertificate({ certificate, isDarkMode, onDow
               const el = node as HTMLElement;
               if (el.style) {
                 el.style.boxShadow = 'none';
+                // Check if color property exists and replace oklch if necessary
+                const style = window.getComputedStyle(el);
+                if (style.color.includes('oklch')) el.style.color = '#0f172a';
+                if (style.backgroundColor.includes('oklch')) el.style.backgroundColor = '#ffffff';
               }
             });
           }
@@ -67,13 +71,8 @@ export default function ProfessionalCertificate({ certificate, isDarkMode, onDow
       });
       
       const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      });
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      const pdf = new jsPDF('l', 'px', [1100, 778]);
+      pdf.addImage(imgData, 'PNG', 0, 0, 1100, 778);
       pdf.save(`Webnixo-Certificate-${certificate.code}.pdf`);
       if (onDownload) onDownload();
     } catch (error) {
@@ -90,16 +89,20 @@ export default function ProfessionalCertificate({ certificate, isDarkMode, onDow
       await document.fonts.ready;
       
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 4,
         useCORS: true,
         backgroundColor: '#ffffff',
-        width: 1100,
-        height: 778,
+        windowWidth: 1200,
+        windowHeight: 900,
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.querySelector('[data-certificate="true"]') as HTMLElement;
           if (clonedElement) {
             clonedElement.style.width = '1100px';
             clonedElement.style.height = '778px';
+            clonedElement.style.position = 'absolute';
+            clonedElement.style.top = '0';
+            clonedElement.style.left = '0';
+            clonedElement.style.backgroundColor = '#ffffff';
           }
         }
       });

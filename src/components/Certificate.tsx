@@ -49,46 +49,22 @@ export default function Certificate() {
             viewport={{ once: true }}
             className="relative"
           >
-            {/* Certificate Preview Card */}
-            <div className="relative z-10 aspect-[1.4/1] bg-white rounded-[32px] p-12 shadow-2xl border-[12px] border-slate-100 overflow-hidden group">
-              {/* Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none rotate-[-15deg]">
-                <span className="text-[100px] font-bold whitespace-nowrap text-slate-900">WEBNIXO</span>
-              </div>
-
-              <div className="h-full border-4 border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-between relative z-10">
-                <div className="text-center">
-                  <Award className="w-16 h-16 text-brand-primary mb-4 mx-auto" />
-                  <h3 className="text-slate-900 font-display text-2xl font-bold uppercase tracking-widest mb-2">Certificate of Completion</h3>
-                  <p className="text-slate-500 text-sm">This is to certify that</p>
-                </div>
-
-                <div className="text-center">
-                  <h4 className="text-slate-900 font-display text-4xl font-bold border-b-2 border-slate-200 px-12 pb-2 mb-4">STUDENT NAME</h4>
-                  <p className="text-slate-500 text-sm">has successfully completed the course</p>
-                  <h5 className="text-brand-primary font-bold text-xl mt-2">PYTHON MASTERY BOOTCAMP</h5>
-                </div>
-
-                <div className="w-full flex justify-between items-end pt-8">
-                  <div className="text-center">
-                    <div className="w-32 h-px bg-slate-300 mb-2" />
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">Date of Issue</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-display text-slate-900 font-bold italic mb-1">Shivanagouda Patil</p>
-                    <div className="w-32 h-px bg-slate-300 mb-2" />
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">CEO & Founder</p>
-                  </div>
-                </div>
-              </div>
+            {/* Certificate Preview Image */}
+            <div className="relative z-10 aspect-[1.414/1] bg-white rounded-[32px] overflow-hidden shadow-2xl border border-slate-200 group">
+              <img 
+                src="https://lh3.googleusercontent.com/d/1IFeZdAHyCu78AfoDtYOr4MZfYu11i_4J" 
+                alt="Webnixo Academy Verified Certificate"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
               
-              {/* Glow Animation */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-brand-primary/10 via-transparent to-brand-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              {/* Glow Animation overlay */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-brand-primary/10 via-transparent to-brand-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
             </div>
 
             {/* Background Decorations */}
-            <div className="absolute -top-10 -right-10 w-64 h-64 bg-brand-primary/20 blur-[100px] rounded-full" />
-            <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-brand-secondary/20 blur-[100px] rounded-full" />
+            <div className="absolute -top-10 -right-10 w-64 h-64 bg-brand-primary/10 blur-[100px] rounded-full" />
+            <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-brand-secondary/10 blur-[100px] rounded-full" />
           </motion.div>
         </div>
       </div>
