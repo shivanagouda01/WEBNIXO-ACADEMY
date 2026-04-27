@@ -59,7 +59,7 @@ export default function Login({ onLogin, onBack, isDarkMode }: LoginProps) {
             <Lock className="text-white w-8 h-8" />
           </div>
           <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>
-          <p className="text-text-muted">Login to continue your learning journey</p>
+          <p className="text-text-muted">Login with your username or email</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -69,7 +69,7 @@ export default function Login({ onLogin, onBack, isDarkMode }: LoginProps) {
               <input 
                 required
                 type="text"
-                placeholder="Login ID"
+                placeholder="Username or Email ID"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 className="w-full bg-bg-card border border-border-card rounded-2xl pl-12 pr-4 py-4 text-text-main focus:outline-none focus:border-brand-primary transition-all"

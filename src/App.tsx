@@ -423,8 +423,8 @@ export default function App() {
   const handleLogin = async (loginId: string, password: string) => {
     setIsLoading(true);
     try {
-      // First check local state
-      const activeUser = users.find(u => u.loginId === loginId && u.password === password);
+      // First check local state - allow login with either loginId or email
+      const activeUser = users.find(u => (u.loginId === loginId || u.email === loginId) && u.password === password);
       
       if (activeUser) {
         setCurrentUser(activeUser);
@@ -440,9 +440,9 @@ export default function App() {
       const { data, error } = await supabase
         .from('registrations')
         .select('*')
-        .eq('login_id', loginId)
+        .or(`login_id.eq."${loginId}",email.eq."${loginId}"`)
         .eq('password', password)
-        .single();
+        .maybeSingle();
 
       if (data && !error) {
         const dbUser: AppUser = {
